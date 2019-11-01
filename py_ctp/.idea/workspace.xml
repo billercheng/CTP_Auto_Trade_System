@@ -1,0 +1,476 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ChangeListManager">
+    <list default="true" id="5090792a-126d-4632-9959-6e520f7b026c" name="Default Changelist" comment="" />
+    <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FUSProjectUsageTrigger">
+    <session id="1892475259">
+      <usages-collector id="statistics.lifecycle.project">
+        <counts>
+          <entry key="project.open.time.0" value="1" />
+          <entry key="project.opened" value="1" />
+        </counts>
+      </usages-collector>
+      <usages-collector id="statistics.file.extensions.open">
+        <counts>
+          <entry key="py" value="11" />
+        </counts>
+      </usages-collector>
+      <usages-collector id="statistics.file.types.open">
+        <counts>
+          <entry key="Python" value="11" />
+        </counts>
+      </usages-collector>
+      <usages-collector id="statistics.file.extensions.edit">
+        <counts>
+          <entry key="py" value="438" />
+        </counts>
+      </usages-collector>
+      <usages-collector id="statistics.file.types.edit">
+        <counts>
+          <entry key="Python" value="438" />
+        </counts>
+      </usages-collector>
+    </session>
+  </component>
+  <component name="FileEditorManager">
+    <splitter split-orientation="horizontal" split-proportion="0.3575515">
+      <split-first>
+        <leaf>
+          <file pinned="false" current-in-tab="true">
+            <entry file="file://$PROJECT_DIR$/test_api2.py">
+              <provider selected="true" editor-type-id="text-editor">
+                <state relative-caret-position="75">
+                  <caret line="3" column="27" lean-forward="true" selection-start-line="3" selection-start-column="27" selection-end-line="3" selection-end-column="27" />
+                  <folding>
+                    <element signature="e#196#3400#0" />
+                    <element signature="e#233#421#0" />
+                    <element signature="e#463#588#0" />
+                    <element signature="e#673#686#0" />
+                    <element signature="e#820#1070#0" />
+                    <element signature="e#894#1019#0" />
+                    <element signature="e#1253#1338#0" />
+                    <element signature="e#1229#1260#0" />
+                    <element signature="e#1378#1757#0" />
+                    <element signature="e#1971#2165#0" />
+                    <element signature="e#2297#2343#0" />
+                    <element signature="e#2521#2597#0" />
+                    <element signature="e#2626#3400#0" />
+                    <element signature="e#3608#3668#0" />
+                    <element signature="e#3716#3748#0" />
+                    <element signature="e#3701#3725#0" />
+                    <marker date="1557883065250" expanded="true" signature="142:3760" ph="..." />
+                    <marker date="1557883065250" expanded="false" signature="2593:2602" ph="..." />
+                  </folding>
+                </state>
+              </provider>
+            </entry>
+          </file>
+          <file pinned="false" current-in-tab="false">
+            <entry file="file://$PROJECT_DIR$/ctp_quote.py">
+              <provider selected="true" editor-type-id="text-editor">
+                <state relative-caret-position="124">
+                  <caret line="12" column="5" selection-start-line="12" selection-start-column="5" selection-end-line="12" selection-end-column="5" />
+                </state>
+              </provider>
+            </entry>
+          </file>
+        </leaf>
+      </split-first>
+      <split-second>
+        <leaf>
+          <file pinned="false" current-in-tab="true">
+            <entry file="file://$PROJECT_DIR$/test_api.py">
+              <provider selected="true" editor-type-id="text-editor">
+                <state relative-caret-position="300">
+                  <caret line="16" lean-forward="true" selection-start-line="16" selection-end-line="16" />
+                  <folding>
+                    <element signature="e#46#68#0" expanded="true" />
+                    <element signature="e#169#238#1" />
+                    <element signature="e#368#6585#0" />
+                    <element signature="e#396#682#0" />
+                    <element signature="e#726#835#0" />
+                    <element signature="e#963#1027#0" />
+                    <element signature="e#1094#1240#0" />
+                    <element signature="e#1166#1240#0" />
+                    <element signature="e#1301#2458#0" />
+                    <element signature="e#2500#2677#0" />
+                    <element signature="e#2735#2748#0" />
+                    <element signature="e#2912#3106#0" />
+                    <element signature="e#3232#3482#0" />
+                    <element signature="e#3306#3431#0" />
+                    <element signature="e#3662#3747#0" />
+                    <element signature="e#3783#4162#0" />
+                    <element signature="e#4191#4458#0" />
+                    <element signature="e#4268#4458#0" />
+                    <element signature="e#4557#4603#0" />
+                    <element signature="e#4751#4827#0" />
+                    <element signature="e#4893#5396#0" />
+                    <element signature="e#5060#5396#0" />
+                  </folding>
+                </state>
+              </provider>
+            </entry>
+          </file>
+        </leaf>
+      </split-second>
+    </splitter>
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Python Script" />
+      </list>
+    </option>
+  </component>
+  <component name="FindInProjectRecents">
+    <findStrings>
+      <find>self.q</find>
+      <find>OnFrontConnected</find>
+    </findStrings>
+  </component>
+  <component name="IdeDocumentHistory">
+    <option name="CHANGED_PATHS">
+      <list>
+        <option value="$PROJECT_DIR$/test_api.py" />
+        <option value="$PROJECT_DIR$/ctp_trade.py" />
+        <option value="$PROJECT_DIR$/ctp_struct.py" />
+        <option value="$PROJECT_DIR$/ctp_quote.py" />
+        <option value="$PROJECT_DIR$/test_api2.py" />
+      </list>
+    </option>
+  </component>
+  <component name="ProjectFrameBounds">
+    <option name="x" value="-10" />
+    <option name="y" value="11" />
+    <option name="width" value="1530" />
+    <option name="height" value="1008" />
+  </component>
+  <component name="ProjectView">
+    <navigator proportions="" version="1">
+      <foldersAlwaysOnTop value="true" />
+    </navigator>
+    <panes>
+      <pane id="Scope" />
+      <pane id="ProjectPane">
+        <subPane>
+          <expand>
+            <path>
+              <item name="py_ctp" type="b2602c69:ProjectViewProjectNode" />
+              <item name="py_ctp" type="462c0819:PsiDirectoryNode" />
+            </path>
+          </expand>
+          <select />
+        </subPane>
+      </pane>
+    </panes>
+  </component>
+  <component name="PropertiesComponent">
+    <property name="last_opened_file_path" value="G:/working/CTP期货交易系统（看穿式）second" />
+    <property name="settings.editor.selected.configurable" value="configurable.group.appearance" />
+  </component>
+  <component name="RunDashboard">
+    <option name="ruleStates">
+      <list>
+        <RuleState>
+          <option name="name" value="ConfigurationTypeDashboardGroupingRule" />
+        </RuleState>
+        <RuleState>
+          <option name="name" value="StatusDashboardGroupingRule" />
+        </RuleState>
+      </list>
+    </option>
+  </component>
+  <component name="RunManager" selected="Python tests.pytest in test_api2.py">
+    <configuration name="ctp_quote" type="PythonConfigurationType" factoryName="Python" temporary="true">
+      <module name="py_ctp" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/ctp_quote.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="ctp_struct" type="PythonConfigurationType" factoryName="Python" temporary="true">
+      <module name="py_ctp" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/ctp_struct.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="ctp_trade" type="PythonConfigurationType" factoryName="Python" temporary="true">
+      <module name="py_ctp" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/ctp_trade.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="pytest in test_api2.py" type="tests" factoryName="py.test" temporary="true" nameIsGenerated="true">
+      <module name="py_ctp" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/../" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="_new_keywords" value="&quot;&quot;" />
+      <option name="_new_additionalArguments" value="&quot;&quot;" />
+      <option name="_new_target" value="&quot;$PROJECT_DIR$/test_api2.py&quot;" />
+      <option name="_new_targetType" value="&quot;PATH&quot;" />
+      <method v="2" />
+    </configuration>
+    <configuration name="pytest in test_api.py" type="tests" factoryName="py.test" temporary="true" nameIsGenerated="true">
+      <module name="py_ctp" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/../" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="_new_keywords" value="&quot;&quot;" />
+      <option name="_new_additionalArguments" value="&quot;&quot;" />
+      <option name="_new_target" value="&quot;$PROJECT_DIR$/test_api.py&quot;" />
+      <option name="_new_targetType" value="&quot;PATH&quot;" />
+      <method v="2" />
+    </configuration>
+    <list>
+      <item itemvalue="Python tests.pytest in test_api2.py" />
+      <item itemvalue="Python tests.pytest in test_api.py" />
+      <item itemvalue="Python.ctp_trade" />
+      <item itemvalue="Python.ctp_struct" />
+      <item itemvalue="Python.ctp_quote" />
+    </list>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Python tests.pytest in test_api2.py" />
+        <item itemvalue="Python.ctp_quote" />
+        <item itemvalue="Python.ctp_struct" />
+        <item itemvalue="Python.ctp_trade" />
+        <item itemvalue="Python tests.pytest in test_api.py" />
+      </list>
+    </recent_temporary>
+  </component>
+  <component name="SvnConfiguration">
+    <configuration />
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="5090792a-126d-4632-9959-6e520f7b026c" name="Default Changelist" comment="" />
+      <created>1557799050714</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1557799050714</updated>
+    </task>
+    <servers />
+  </component>
+  <component name="TestHistory">
+    <history-entry file="pytest_in_test_api2_py - 2019.05.15 at 09h 12m 03s.xml">
+      <configuration name="pytest in test_api2.py" configurationId="tests" />
+    </history-entry>
+    <history-entry file="pytest_in_test_api_py - 2019.05.15 at 09h 12m 59s.xml">
+      <configuration name="pytest in test_api.py" configurationId="tests" />
+    </history-entry>
+    <history-entry file="pytest_in_test_api2_py - 2019.05.15 at 09h 13m 19s.xml">
+      <configuration name="pytest in test_api2.py" configurationId="tests" />
+    </history-entry>
+    <history-entry file="pytest_in_test_api2_py - 2019.05.15 at 09h 13m 39s.xml">
+      <configuration name="pytest in test_api2.py" configurationId="tests" />
+    </history-entry>
+    <history-entry file="pytest_in_test_api2_py - 2019.05.15 at 09h 13m 47s.xml">
+      <configuration name="pytest in test_api2.py" configurationId="tests" />
+    </history-entry>
+    <history-entry file="pytest_in_test_api2_py - 2019.05.15 at 09h 14m 19s.xml">
+      <configuration name="pytest in test_api2.py" configurationId="tests" />
+    </history-entry>
+    <history-entry file="pytest_in_test_api2_py - 2019.05.15 at 09h 14m 28s.xml">
+      <configuration name="pytest in test_api2.py" configurationId="tests" />
+    </history-entry>
+    <history-entry file="pytest_in_test_api2_py - 2019.05.15 at 09h 17m 01s.xml">
+      <configuration name="pytest in test_api2.py" configurationId="tests" />
+    </history-entry>
+    <history-entry file="pytest_in_test_api2_py - 2019.05.15 at 09h 17m 39s.xml">
+      <configuration name="pytest in test_api2.py" configurationId="tests" />
+    </history-entry>
+    <history-entry file="pytest_in_test_api2_py - 2019.05.15 at 09h 17m 45s.xml">
+      <configuration name="pytest in test_api2.py" configurationId="tests" />
+    </history-entry>
+  </component>
+  <component name="ToolWindowManager">
+    <frame x="-8" y="-8" width="1936" height="1056" extended-state="6" />
+    <editor active="true" />
+    <layout>
+      <window_info id="Favorites" side_tool="true" />
+      <window_info content_ui="combo" id="Project" order="0" visible="true" weight="0.07903056" />
+      <window_info id="Structure" order="1" side_tool="true" weight="0.25" />
+      <window_info anchor="bottom" id="Version Control" show_stripe_button="false" />
+      <window_info anchor="bottom" id="Python Console" />
+      <window_info anchor="bottom" id="Terminal" />
+      <window_info anchor="bottom" id="Event Log" side_tool="true" />
+      <window_info anchor="bottom" id="Message" order="0" />
+      <window_info anchor="bottom" id="Find" order="1" />
+      <window_info active="true" anchor="bottom" id="Run" order="2" visible="true" weight="0.50333333" />
+      <window_info anchor="bottom" id="Debug" order="3" weight="0.4" />
+      <window_info anchor="bottom" id="Cvs" order="4" weight="0.25" />
+      <window_info anchor="bottom" id="Inspection" order="5" weight="0.4" />
+      <window_info anchor="bottom" id="TODO" order="6" />
+      <window_info anchor="right" id="Commander" order="0" weight="0.4" />
+      <window_info anchor="right" id="Ant Build" order="1" weight="0.25" />
+      <window_info anchor="right" content_ui="combo" id="Hierarchy" order="2" weight="0.25" />
+    </layout>
+  </component>
+  <component name="VcsContentAnnotationSettings">
+    <option name="myLimit" value="2678400000" />
+  </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/test_api.py</url>
+          <line>26</line>
+          <option name="timeStamp" value="1" />
+        </line-breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
+  </component>
+  <component name="editorHistoryManager">
+    <entry file="file://D:/anaconda3/Lib/platform.py">
+      <provider selected="true" editor-type-id="text-editor" />
+    </entry>
+    <entry file="file://$PROJECT_DIR$/__init__.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="175">
+          <caret line="7" lean-forward="true" selection-start-line="7" selection-end-line="7" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/test_api.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="300">
+          <caret line="16" lean-forward="true" selection-start-line="16" selection-end-line="16" />
+          <folding>
+            <element signature="e#46#68#0" expanded="true" />
+            <element signature="e#169#238#1" />
+            <element signature="e#368#6585#0" />
+            <element signature="e#396#682#0" />
+            <element signature="e#726#835#0" />
+            <element signature="e#963#1027#0" />
+            <element signature="e#1094#1240#0" />
+            <element signature="e#1166#1240#0" />
+            <element signature="e#1301#2458#0" />
+            <element signature="e#2500#2677#0" />
+            <element signature="e#2735#2748#0" />
+            <element signature="e#2912#3106#0" />
+            <element signature="e#3232#3482#0" />
+            <element signature="e#3306#3431#0" />
+            <element signature="e#3662#3747#0" />
+            <element signature="e#3783#4162#0" />
+            <element signature="e#4191#4458#0" />
+            <element signature="e#4268#4458#0" />
+            <element signature="e#4557#4603#0" />
+            <element signature="e#4751#4827#0" />
+            <element signature="e#4893#5396#0" />
+            <element signature="e#5060#5396#0" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/ctp_struct.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="284">
+          <caret line="13" column="27" selection-start-line="13" selection-start-column="27" selection-end-line="13" selection-end-column="27" />
+          <folding>
+            <element signature="e#111#131#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/ctp_trade.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="159">
+          <caret line="12" column="5" selection-start-line="12" selection-start-column="5" selection-end-line="12" selection-end-column="5" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/ctp_quote.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="124">
+          <caret line="12" column="5" selection-start-line="12" selection-start-column="5" selection-end-line="12" selection-end-column="5" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/test_api2.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="75">
+          <caret line="3" column="27" lean-forward="true" selection-start-line="3" selection-start-column="27" selection-end-line="3" selection-end-column="27" />
+          <folding>
+            <element signature="e#196#3400#0" />
+            <element signature="e#233#421#0" />
+            <element signature="e#463#588#0" />
+            <element signature="e#673#686#0" />
+            <element signature="e#820#1070#0" />
+            <element signature="e#894#1019#0" />
+            <element signature="e#1253#1338#0" />
+            <element signature="e#1229#1260#0" />
+            <element signature="e#1378#1757#0" />
+            <element signature="e#1971#2165#0" />
+            <element signature="e#2297#2343#0" />
+            <element signature="e#2521#2597#0" />
+            <element signature="e#2626#3400#0" />
+            <element signature="e#3608#3668#0" />
+            <element signature="e#3716#3748#0" />
+            <element signature="e#3701#3725#0" />
+            <marker date="1557883065250" expanded="true" signature="142:3760" ph="..." />
+            <marker date="1557883065250" expanded="false" signature="2593:2602" ph="..." />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+  </component>
+</project>
