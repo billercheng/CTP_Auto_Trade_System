@@ -39,6 +39,10 @@ EVENT_SHOWPOSITION = 'event_showposition'
 EVENT_LOGIN = 'event_Login'
 EVENT_ACCOUNTPOSITION = 'event_allposition'
 EVENT_MARKETORDER = 'event_marketorder'
+EVENT_LOGProgram = 'EVENT_LOGProgram'
+EVENT_LOGLogBarDeal = 'EVENT_LOGLogBarDeal'
+EVENT_LOGTradeRecord = 'EVENT_LOGTradeRecord'
+EVENT_LOGLogTick = 'EVENT_LOGLogTick'
 #----------------------------------------------------------------------
 def test():
     """检查是否存在内容重复的常量定义"""
