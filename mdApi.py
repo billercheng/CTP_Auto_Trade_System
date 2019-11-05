@@ -9,12 +9,12 @@ import sys
 from parameter import *
 
 class MdApi:
-    def __init__(self):
+    def __init__(self, userid, password, brokerid, RegisterFront):
         # 登陆的账户与密码
-        self.userid = ''
-        self.password = ''
-        self.brokerid = '3003'
-        self.address = 'tcp://114.80.54.237:41213'
+        self.userid = userid
+        self.password = password
+        self.brokerid = brokerid
+        self.address = RegisterFront
         # 创建Quote对象
         self.q = Quote()
         api = self.q.CreateApi()
@@ -37,18 +37,18 @@ class MdApi:
 
     def onFrontDisconnected(self, n):
         """服务器断开"""
-        putLogEvent('行情服务器连接断开')
+        downLogProgram('行情服务器连接断开')
 
     def onRspUserLogin(self, data, error, n, last):
         """登陆回报"""
         if error.getErrorID() == 0:
-            putLogEvent('行情服务器登陆成功，订阅主力合约')
+            downLogProgram('行情服务器登陆成功，订阅主力合约')
             for instrument in listInstrument:
                 self.q.SubscribeMarketData(instrument)
         else:
             log = '行情服务器登陆回报，错误代码：' + str(error.getErrorID()) + \
                   ',   错误信息：' + str(error.getErrorMsg())
-            putLogEvent(log)
+            downLogProgram(log)
 
     def onRspUserLogout(self, data, error, n, last):
         if error.getErrorID() == 0:
@@ -56,13 +56,13 @@ class MdApi:
         else:
             log = '行情服务器登出回报，错误代码：' + str(error.getErrorID()) + \
                   ',   错误信息：' + str(error.getErrorMsg())
-        putLogEvent(log)
+        downLogProgram(log)
 
     def onRspError(self, error, n, last):
         """错误回报"""
         log = '行情错误回报，错误代码：' + str(error.getErrorID()) \
               + '错误信息：' + + str(error.getErrorMsg())
-        putLogEvent(log)
+        downLogProgram(log)
 
     def onRspSubMarketData(self, data, info, n, last):
         pass

@@ -7,49 +7,20 @@ def onBar(dictTemp):  # 接收一分钟数据
     goodsCode = dictTemp['theCode']
     goodsName = dictGoodsName[goodsCode]
     # 如果是该品种的第一次执行的话，需要检测内存数据的完整
-    if dictGoodsFirst[goodsCode] == True:
-        dictGoodsFirst[goodsCode] = False
-        for freq in listFreqPlus:
-            # 查看是否有缺失的值
-            if goodsCode in dictFreqUnGoodsCode[freq]:
-                continue
-            listTemp = getLoseDataOtherMin(goodsCode, dictData[freq][goodsName + '_调整表'].index[-1], tradeTime - timedelta(minutes=1), freq)
-            if len(listTemp) > 0:
-                preTradeTime = dictData[freq][goodsName + '_调整表'].index[-1]
-                df = pd.read_sql(
-                    "select * from cta{}_trade.{}_调整表 where trade_time > '{}' and trade_time < '{}' order by trade_time"
-                        .format(freq, goodsName, preTradeTime, tradeTime), con).set_index('trade_time')
-                df = df.drop(['id'], axis=1)
-                dictData[freq][goodsName + '_调整表'] = dictData[freq][goodsName + '_调整表'].append(df)
-                if freq != 1:
-                    preTradeTime = dictData[freq][goodsName + '_均值表'].index[-1]
-                    df = pd.read_sql(
-                        "select * from cta{}_trade.{}_均值表 where trade_time > '{}' and trade_time < '{}' order by trade_time"
-                            .format(freq, goodsName, preTradeTime,tradeTime), con).set_index('trade_time')
-                    df = df.drop(['id'], axis=1)
-                    dictData[freq][goodsName + '_均值表'] = dictData[freq][goodsName + '_均值表'].append(df)
-                    preTradeTime = dictData[freq][goodsName + '_重叠度表'].index[-1]
-                    df = pd.read_sql(
-                        "select * from cta{}_trade.{}_重叠度表 where trade_time > '{}' and trade_time < '{}' order by trade_time".format(freq, goodsName, preTradeTime,
-                                                                                                                         tradeTime), con).set_index('trade_time')
-                    df = df.drop(listDrop, axis=1)
-                    dictData[freq][goodsName + '_重叠度表'] = dictData[freq][goodsName + '_重叠度表'].append(df)
-                    getWeekTradeTab(goodsCode, freq)
     instrument = dictTemp['goods_code'].split('.')[0]
-    dictData[1][goodsName + '_调整表'].loc[tradeTime] = [dictTemp[column] for column in listOneMinColumns]
+    dictData[1][goodsName + '_调整表'].loc[tradeTime] = [dictTemp[column] for column in listMin]
     for freq in listFreq:
-        if tradeTime.time() in dictGoodsClose[freq][goodsCode]:
+        if tradeTime.time() in dictFreqGoodsClose[freq][goodsCode]:
             # 对bar数据进行撤单操作，编号：时间（8）频段（2）品种（2）第几个bar（2）开仓（1）平仓（0）市价平仓（9）
-            putLogBarDealEvent("------------------------------------------------------", freq)
             if goodsCode in dictFreqUnGoodsCode[freq]:
                 continue
-            putLogBarDealEvent("品种：{} 频段：{} 时间为：{} 数据处理".
+            downLogBarDeal("品种：{} 频段：{} 时间为：{} 数据处理".
                                format(instrument, freq, tradeTime.strftime("%Y-%m-%d %H:%M:%S")), freq)
             #region 撤回上一个bar数据下的单（不包括市价下单）
             indexGoods = listGoods.index(goodsCode)
-            indexBar = dictGoodsClose[freq][goodsCode].index(tradeTime.time())
+            indexBar = dictFreqGoodsClose[freq][goodsCode].index(tradeTime.time())
             # 如果刚好是15：00 或者是15：15的话，取下一日的交易日吧
-            if tradeTime.time() == dictGoodsClose[1][goodsCode][-1]:
+            if tradeTime.time() == dictFreqGoodsClose[1][goodsCode][-1]:
                 temp = dfDatetime['tradeDatetime'][dfDatetime['tradeDatetime'] > tradeTime].iat[0]
                 orderRef = temp.strftime('%Y%m%d') + '.' + str(freq) + '.' + str(indexGoods) + '.' + str(indexBar) + '.'
             else:
@@ -65,19 +36,19 @@ def onBar(dictTemp):  # 接收一分钟数据
                 dfFreqOrderTemp = dictFreqOrder[freq].copy()
             dfFreqOrderTemp = dfFreqOrderTemp[~dfFreqOrderTemp['本地下单码'].duplicated(keep='last')].reset_index(drop=True)
             if dfFreqOrderTemp.shape[0] > 0:
-                for eachIndex in dfFreqOrderTemp['本地下单码'][pd.DataFrame(dfFreqOrderTemp['本地下单码'].str.split('.').tolist())[2] == str(indexGoods)].index:
-                    if dfFreqOrderTemp['状态'][eachIndex] not in ["全部成交","全部成交报单已提交"] and dfFreqOrderTemp['状态'][eachIndex][:3] != "已撤单":
-                        putLogBarDealEvent("品种：{} 之前的编号 {} 进行撤单操作".format(instrument, dfFreqOrderTemp['本地下单码'][eachIndex]), freq)
+                for index in dfFreqOrderTemp['本地下单码'][pd.DataFrame(dfFreqOrderTemp['本地下单码'].str.split('.').tolist())[2] == str(indexGoods)].index:
+                    if dfFreqOrderTemp['状态'][index] not in ["全部成交","全部成交报单已提交"] and dfFreqOrderTemp['状态'][index][:3] != "已撤单":
+                        downLogBarDeal("品种：{} 之前的编号 {} 进行撤单操作".format(instrument, dfFreqOrderTemp['本地下单码'][index]), freq)
                         cancelEvent = Event(type_=theCancel)
-                        cancelEvent.dict_['orderref'] = dfFreqOrderTemp['本地下单码'][eachIndex]
-                        preOrderRef = dfFreqOrderTemp['本地下单码'][eachIndex]
+                        cancelEvent.dict_['orderref'] = dfFreqOrderTemp['本地下单码'][index]
+                        preOrderRef = dfFreqOrderTemp['本地下单码'][index]
                         ee.put(cancelEvent)
             #endregion
             #region 对新的bar数据进行 均值表 重叠度表 周交易明细表计算
-            if tradeTime.time() == dictGoodsClose[freq][goodsCode][-1]:
-                tBehind = dictGoodsClose[freq][goodsCode][-1]
-                tFront = dictGoodsClose[freq][goodsCode][-2]
-                minDelay = dictGoodsClose[1][goodsCode].index(tBehind) - dictGoodsClose[1][goodsCode].index(tFront)
+            if tradeTime.time() == dictFreqGoodsClose[freq][goodsCode][-1]:
+                tBehind = dictFreqGoodsClose[freq][goodsCode][-1]
+                tFront = dictFreqGoodsClose[freq][goodsCode][-2]
+                minDelay = dictFreqGoodsClose[1][goodsCode].index(tBehind) - dictFreqGoodsClose[1][goodsCode].index(tFront)
                 df = dictData[1][goodsName + '_调整表'][minDelay * (-1):].copy()
             else:
                 df = dictData[1][goodsName + '_调整表'][freq * (-1):].copy()
@@ -92,20 +63,14 @@ def onBar(dictTemp):  # 接收一分钟数据
             dictFreq['amt'] = df['amt'].sum()
             dictFreq['oi'] = df['oi'][-1]
             dictData[freq][goodsName + '_调整表'].loc[tradeTime] = dictFreq
-            putLogBarDealEvent("均值", freq)
+            downLogBarDeal("均值", freq)
             getOneMa(freq, goodsCode, tradeTime)
-            if freq < 150:
-                putLogBarDealEvent("不需要重叠度", freq)
-                dictTemp = {}.fromkeys(list(dictData[freq][goodsName + '_重叠度表'].columns))
-                dictData[freq][goodsName + '_重叠度表'].loc[tradeTime] = dictTemp
-                # getOneOverLapDegree(freq, goodsCode, tradeTime)
-            else:
-                putLogBarDealEvent("不需要重叠度", freq)
-                dictTemp = {}.fromkeys(list(dictData[freq][goodsName + '_重叠度表'].columns))
-                dictData[freq][goodsName + '_重叠度表'].loc[tradeTime] = dictTemp
-            putLogBarDealEvent("周交易明细表", freq)
+            downLogBarDeal("不需要重叠度", freq)
+            dictTemp = {}.fromkeys(list(dictData[freq][goodsName + '_重叠度表'].columns))
+            dictData[freq][goodsName + '_重叠度表'].loc[tradeTime] = dictTemp
+            downLogBarDeal("周交易明细表", freq)
             getTheOneWeekTradeTab(freq, goodsCode, tradeTime)
-            putLogBarDealEvent("实时计算Bar", freq)
+            downLogBarDeal("实时计算Bar", freq)
             getOrder(freq, goodsCode, orderRef, preOrderRef)
 
 #region 均值处理
@@ -185,12 +150,13 @@ def getOneOverLapDegree(freq, goodsCode, CurrentTradeTime):
 #region 周交易明细表处理
 def getWeekTradeTab(goodsCode, freq):
     goodsName = dictGoodsName[goodsCode]
-    SelectWeekTradeTab = dictData[freq][goodsName + '_周交易明细表'].copy()
-    SelectWeekTradeTab = SelectWeekTradeTab[(SelectWeekTradeTab.index > weekStartTime)
-                                            & (SelectWeekTradeTab.index < weekEndTime)]
-    if SelectWeekTradeTab.shape[0] == 0:
-        dfTemp = pd.DataFrame(columns=listWeekTradeTab)
-        dfTemp.to_csv('weekTradeTab\\{}\\{}.csv'.format(freq, goodsCode), index=False, encoding='gbk')
+    selectWeekTradeTab = dictData[freq][goodsName + '_周交易明细表'].copy()
+    selectWeekTradeTab = selectWeekTradeTab[(selectWeekTradeTab.index > weekStartTime)
+                                            & (selectWeekTradeTab.index < weekEndTime)]
+    if selectWeekTradeTab.shape[0] == 0:
+        # 删除周交易明细表表格
+        temp = dictFreqDb[freq]['{}_周交易明细表'.format(goodsName)]
+        temp.drop()
         dictData[freq][goodsName + '_周交易明细表'] = dictData[freq][goodsName + '_周交易明细表'][0:0]
         EndODtime = dictData[freq][goodsName + '_重叠度表'][dictData[freq][goodsName + '_重叠度表'].index < weekStartTime].index[-1]
         getTheOneWeekTradeTab(freq, goodsCode, EndODtime)
@@ -258,21 +224,7 @@ def getTheOneWeekTradeTab(freq, goodsCode, CurrentTradeTime):
     dr["开仓线多"] = OpenPrice
     dr["止盈线多"] = StopAbtainPrice
     dr["止损线多"] = StopLossPrice
-    if freq < 150:
-        # TradeOkFlag = False
-        # if ODth == -100:
-        #     if CurrentHighOD == -100:
-        #         TradeOkFlag = True
-        # else:
-        #     if CurrentHighOD > ODth:
-        #         TradeOkFlag = True
-        # if TradeOkFlag:
-        #     dr["重叠度标识多"] = 1
-        # else:
-        #     dr["重叠度标识多"] = 1
-        dr["重叠度标识多"] = 1
-    else:
-        dr["重叠度标识多"] = 1
+    dr["重叠度标识多"] = 1
     dr["均值"] = MaPrice
     dr["标准差"] = StdPrice
     dr["最高价"] = HighPrice
@@ -300,7 +252,7 @@ def getTheOneWeekTradeTab(freq, goodsCode, CurrentTradeTime):
             # 判断是否满足开仓操作
             if PreDuoODFlag == 1:  # 是否满足重叠度标识符号
                 if HighPrice >= PreOpenLine and LowPrice <= PreOpenLine \
-                        and (CurrentTradeTime - LastWeekTradeTab.index[0] < timedelta(days=1) or dictFreqGoodsMin[freq][goodsCode][-1] == dictFreqGoodsMin[1][goodsCode][-1]):
+                        and (CurrentTradeTime - LastWeekTradeTab.index[0] < timedelta(days=1) or dictFreqGoodsCloseNight[freq][goodsCode][-1] == dictFreqGoodsCloseNight[1][goodsCode][-1]):
                     isOpenDuo = True
                     # 做多参数
                     if abs(PreOpenLine - PreStopLossLine) <= 5 * dictGoodsUnit[goodsCode]:
@@ -335,7 +287,7 @@ def getTheOneWeekTradeTab(freq, goodsCode, CurrentTradeTime):
                 dr["单笔浮赢亏多"] = CangweiDuo * (PreStopAbtainLine - PreClosePrice) / PreClosePrice
             elif HighPrice > PreStopAbtainLine and LowPrice > PreStopAbtainLine:
                 dr["开仓时间"] = PreOpenTime
-                CloseFlag = true
+                CloseFlag = True
                 dr["开平仓标识多"] = -1
                 dr["平仓时间"] = CurrentTradeTime
                 dr["仓位多"] = CangweiDuo
@@ -343,14 +295,14 @@ def getTheOneWeekTradeTab(freq, goodsCode, CurrentTradeTime):
             # 止损判断
             if HighPrice >= PreStopLossLine and LowPrice <= PreStopLossLine:
                 dr["开仓时间"] = PreOpenTime
-                CloseFlag = true
+                CloseFlag = True
                 dr["开平仓标识多"] = -2
                 dr["平仓时间"] = CurrentTradeTime
                 dr["仓位多"] = CangweiDuo
                 dr["单笔浮赢亏多"] = CangweiDuo * (PreStopLossLine - PreClosePrice) / PreClosePrice
             elif HighPrice < PreStopLossLine and LowPrice < PreStopLossLine:
                 dr["开仓时间"] = PreOpenTime
-                CloseFlag = true
+                CloseFlag = True
                 dr["开平仓标识多"] = -2
                 dr["平仓时间"] = CurrentTradeTime
                 dr["仓位多"] = CangweiDuo
@@ -373,20 +325,7 @@ def getTheOneWeekTradeTab(freq, goodsCode, CurrentTradeTime):
     OpenPrice = MaPrice + OpenMux * StdPrice
     StopAbtainPrice = MaPrice + StopAbtainMux * StdPrice
     StopLossPrice = MaPrice + StopLossMux * StdPrice
-    if freq < 150:
-        # if ODth == -100:
-        #     if CurrentLowOD == -100:
-        #         TradeOkFlag = True
-        # else:
-        #     if CurrentLowOD > ODth:
-        #         TradeOkFlag = True
-        # if TradeOkFlag:
-        #     dr["重叠度标识空"] = 1
-        # else:
-        #     dr["重叠度标识空"] = 1
-        dr["重叠度标识空"] = 1
-    else:
-        dr["重叠度标识空"] = 1
+    dr["重叠度标识空"] = 1
     dr["开仓线空"] = OpenPrice
     dr["止盈线空"] = StopAbtainPrice
     dr["止损线空"] = StopLossPrice
@@ -409,7 +348,7 @@ def getTheOneWeekTradeTab(freq, goodsCode, CurrentTradeTime):
         if PreTradeKongFlag != 1:
             if PreKongODFlag == 1:
                 if HighPrice >= PreOpenLine and LowPrice <= PreOpenLine \
-                        and (CurrentTradeTime - LastWeekTradeTab.index[0] < timedelta(days=1) or dictFreqGoodsMin[freq][goodsCode][-1] == dictFreqGoodsMin[1][goodsCode][-1]):
+                        and (CurrentTradeTime - LastWeekTradeTab.index[0] < timedelta(days=1) or dictFreqGoodsCloseNight[freq][goodsCode][-1] == dictFreqGoodsCloseNight[1][goodsCode][-1]):
                     isOpenKong = True
                     if abs(PreOpenLine - PreStopLossLine) <= 5 * dictGoodsUnit[goodsCode]:
                         isOpenKong = False
@@ -470,8 +409,9 @@ def getTheOneWeekTradeTab(freq, goodsCode, CurrentTradeTime):
                 dr["单笔浮赢亏空"] = -CangweiKong * (ClosePrice - PreClosePrice) / PreClosePrice
     # endregion
     dictData[freq][goodsName + '_周交易明细表'].loc[CurrentTradeTime] = dr
-    dictData[freq][goodsName + '_周交易明细表'][-1:].to_csv('weekTradeTab\\{}\\{}.csv'.format(freq, goodsCode), index = True, header = False, mode = 'a', encoding='gbk')
-    putLogBarDealEvent(str(dr), freq)
+    dr['交易时间'] = CurrentTradeTime
+    dictFreqDb[freq][goodsName + '_周交易明细表'].insert_one(dr)
+    downLogBarDeal(str(dr), freq)
 #endregion
 
 def getOrder(freq, goodsCode, orderRef, preOrderRef):
@@ -487,23 +427,23 @@ def getOrder(freq, goodsCode, orderRef, preOrderRef):
     StdMvLen = ParTab[freq]['均值滑动长度'][goodsName]
     theOrder = EVENT_ORDERCOMMAND
     # 下午结束Bar
-    theLastTimeNon = dictGoodsClose[freq][goodsCode][-1]
+    theLastTimeNon = dictFreqGoodsClose[freq][goodsCode][-1]
     # 下午倒数第一交易时间
-    LastTimeNon = dictGoodsClose[freq][goodsCode][-2]
+    LastTimeNon = dictFreqGoodsClose[freq][goodsCode][-2]
     # 下午倒数第二交易时间
-    if len(dictGoodsClose[freq][goodsCode]) == 2:
+    if len(dictFreqGoodsClose[freq][goodsCode]) == 2:
         PreLastTimeNon = LastTimeNon
     else:
-        PreLastTimeNon = dictGoodsClose[freq][goodsCode][-3]
+        PreLastTimeNon = dictFreqGoodsClose[freq][goodsCode][-3]
     # 夜盘结束Bar
-    theLastTimeNight = dictFreqGoodsMin[freq][goodsCode][-1]
+    theLastTimeNight = dictFreqGoodsCloseNight[freq][goodsCode][-1]
     # 夜盘最后交易时间
-    LastTimeNight = dictFreqGoodsMin[freq][goodsCode][-2]
+    LastTimeNight = dictFreqGoodsCloseNight[freq][goodsCode][-2]
     # 夜盘倒数第二交易时间
-    if len(dictFreqGoodsMin[freq][goodsCode]) == 2:
+    if len(dictFreqGoodsCloseNight[freq][goodsCode]) == 2:
         PreLastTimeNight = LastTimeNight
     else:
-        PreLastTimeNight = dictFreqGoodsMin[freq][goodsCode][-3]
+        PreLastTimeNight = dictFreqGoodsCloseNight[freq][goodsCode][-3]
     # 根据最新周交易状态，进行下单
     LastTradeDataTab = dictData[freq]['{}_周交易明细表'.format(goodsName)][-1:]
     TradeTime = LastTradeDataTab.index[0]
@@ -535,9 +475,9 @@ def getOrder(freq, goodsCode, orderRef, preOrderRef):
             pos1 = volumeGoods
         else:
             pos2 = abs(volumeGoods)
-    putLogBarDealEvent("{} 持多仓手数：{}".
+    downLogBarDeal("{} 持多仓手数：{}".
                        format(instrument, pos1), freq)
-    putLogBarDealEvent("{} 持空仓手数：{}".
+    downLogBarDeal("{} 持空仓手数：{}".
                        format(instrument, pos2), freq)
     HighPrice = LastTradeDataTab["最高价"][0]
     LowPrice = LastTradeDataTab["最低价"][0]
@@ -567,12 +507,12 @@ def getOrder(freq, goodsCode, orderRef, preOrderRef):
     DuoCountMux = 1  # 多开仓系数
     if dictFreqSet[freq][4]:
         if LowPrice > (OpenLongPrice + LongStopLoss) / 2:  # 最低价在做多的开仓线和止损线之上，则仅开一半仓位
-            putLogBarDealEvent("最低价在做多的开仓线和止损线之上，则仅开一半仓位  {} > ({} + {}) / 2  ".format(LowPrice, OpenLongPrice, LongStopLoss), freq)
+            downLogBarDeal("最低价在做多的开仓线和止损线之上，则仅开一半仓位  {} > ({} + {}) / 2  ".format(LowPrice, OpenLongPrice, LongStopLoss), freq)
             DuoCountMux = 0.5
     AccoutRate = 1
     DuoBuyCount = (AccoutRate * accountCapital * CangWei * RiskRate) / (OpenLongPrice * ChengShu)
     Duovolume = min(round(DuoBuyCount * DuoCountMux), 1)
-    putLogBarDealEvent("计算多手数过程 {} = round({} * {})".format(Duovolume, DuoBuyCount, DuoCountMux), freq)
+    downLogBarDeal("计算多手数过程 {} = round({} * {})".format(Duovolume, DuoBuyCount, DuoCountMux), freq)
     # 进行价格取整操作
     OpenLongPrice = changePriceLine(OpenLongPrice, MinChangUnit, "多", "开仓")
     LongStopProfit = changePriceLine(LongStopProfit, MinChangUnit, "多", "止盈")
@@ -586,12 +526,12 @@ def getOrder(freq, goodsCode, orderRef, preOrderRef):
     KongCountMux = 1
     if dictFreqSet[freq][4]:
         if HighPrice < (ShortStopLoss + OpenShortPrice) / 2:  # 最高价在做空的开仓线和止损线中线之下，则仅开一半空仓位
-            putLogBarDealEvent("最高价在做空的开仓线和止损线中线之下，则仅开一半空仓位  {} < ({} + {}) / 2  ".format(OpenShortPrice, ShortStopProfit, ShortStopLoss), freq)
+            downLogBarDeal("最高价在做空的开仓线和止损线中线之下，则仅开一半空仓位  {} < ({} + {}) / 2  ".format(OpenShortPrice, ShortStopProfit, ShortStopLoss), freq)
             KongCountMux = 0.5
     CangWei = CapitalMaxLossRate / ((ShortStopLoss - OpenShortPrice) / OpenShortPrice)
     KongBuyCount = (AccoutRate * accountCapital * CangWei * RiskRate) / (OpenShortPrice * ChengShu)
     Kongvolume = min(round(KongBuyCount * KongCountMux), 1)
-    putLogBarDealEvent("计算空手数过程 {} = round({} * {})".format(Kongvolume, KongBuyCount, KongCountMux), freq)
+    downLogBarDeal("计算空手数过程 {} = round({} * {})".format(Kongvolume, KongBuyCount, KongCountMux), freq)
     # 进行价格取整操作
     OpenShortPrice = changePriceLine(OpenShortPrice, MinChangUnit, "空", "开仓")
     ShortStopProfit = changePriceLine(ShortStopProfit, MinChangUnit, "空", "止盈")
@@ -600,27 +540,27 @@ def getOrder(freq, goodsCode, orderRef, preOrderRef):
 
     #region 高低价是否满足重叠度长度对应的均值条件
     if dictFreqSet[freq][2]:
-        putLogBarDealEvent('需要判断 重叠度对应的均值与高低价关系', freq)
+        downLogBarDeal('需要判断 重叠度对应的均值与高低价关系', freq)
         if HighPrice < MaWithODLen:  # MaWithODLen 不指定的均值
             Duovolume = 0
-            putLogBarDealEvent('HighPrice < MaWithODLen Duovolume = 0', freq)
+            downLogBarDeal('HighPrice < MaWithODLen Duovolume = 0', freq)
         if LowPrice > MaWithODLen:
             Kongvolume = 0
-            putLogBarDealEvent('LowPrice > MaWithODLen Kongvolume = 0', freq)
+            downLogBarDeal('LowPrice > MaWithODLen Kongvolume = 0', freq)
     else:
-        putLogBarDealEvent('无需判断 重叠度对应的均值与高低价关系', freq)
+        downLogBarDeal('无需判断 重叠度对应的均值与高低价关系', freq)
     if dictFreqSet[freq][3]:
-        putLogBarDealEvent('需要判断 当前MA是否满足均值与重叠度斜率', freq)
+        downLogBarDeal('需要判断 当前MA是否满足均值与重叠度斜率', freq)
         stdMa = dfMa['maprice_{}'.format(StdMvLen)][int(StdMvLen * 0.5 * (-1)) - 1]
         odMa = dfMa['maprice_{}'.format(ODMvLen)][int(ODMvLen * 1 * (-1)) - 1]
         if MaWithODLen < odMa or MaWithStd < stdMa:
             Duovolume = 0
-            putLogBarDealEvent('{} < {} or {} < {}  Duovolume = 0'.format(MaWithODLen, odMa, MaWithStd, stdMa), freq)
+            downLogBarDeal('{} < {} or {} < {}  Duovolume = 0'.format(MaWithODLen, odMa, MaWithStd, stdMa), freq)
         if MaWithODLen > odMa or MaWithStd > stdMa:
             Kongvolume = 0
-            putLogBarDealEvent('{} > {} or {} > {}  Kongvolume = 0'.format(MaWithODLen, odMa, MaWithStd, stdMa), freq)
+            downLogBarDeal('{} > {} or {} > {}  Kongvolume = 0'.format(MaWithODLen, odMa, MaWithStd, stdMa), freq)
     else:
-        putLogBarDealEvent('无需判断 当前MA是否满足均值与重叠度斜率', freq)
+        downLogBarDeal('无需判断 当前MA是否满足均值与重叠度斜率', freq)
     LongSign = LastDuoFlag
     ShortSign = LastKongFlag
     sendTradeDr = {}
@@ -685,7 +625,7 @@ def getOrder(freq, goodsCode, orderRef, preOrderRef):
         sendTradeDr["空止损线"] = 2
         sendTradeDr["空止盈线"] = 0
     #endregion
-    putLogBarDealEvent("品种为：{} 多标志状态为：TradeDuoOkStatus = {}, 空标志状态为：TradeKongOkStatus = {}"
+    downLogBarDeal("品种为：{} 多标志状态为：TradeDuoOkStatus = {}, 空标志状态为：TradeKongOkStatus = {}"
                        .format(instrument, TradeDuoOkStatus, TradeKongOkStatus), freq)
     #region 开多仓标志与开空仓标志都 != 1，意思为没有持仓
     if ShortSign != 1 and LongSign != 1:
@@ -693,33 +633,33 @@ def getOrder(freq, goodsCode, orderRef, preOrderRef):
             if dictFreqSet[freq][0]:
                 if OpenLongPrice - LongStopLoss <= 5 * MinChangUnit:  # 开仓价 - 止损价 <= 5 * Min
                     LongOpenCloseMux = round((OpenLongPrice - LongStopLoss) / MinChangUnit)
-                    putLogBarDealEvent("{} 做多线 OpenLongPrice = {}, LongStopLoss = {}, 相差价位数 = {}, 不符合开仓条件"
+                    downLogBarDeal("{} 做多线 OpenLongPrice = {}, LongStopLoss = {}, 相差价位数 = {}, 不符合开仓条件"
                                        .format(instrument, OpenLongPrice, LongStopLoss, LongOpenCloseMux), freq)
                     sendTradeDr["多开仓线"] = 1
                     sendTradeDr["多止损线"] = 0
                     sendTradeDr["多止盈线"] = 2
             else:
-                putLogBarDealEvent("无须判断止损幅度与最小变量单位的大小", freq)
+                downLogBarDeal("无须判断止损幅度与最小变量单位的大小", freq)
         if sendTradeDr["空开仓线"] != 1:
             if dictFreqSet[freq][0]:
                 if ShortStopLoss - OpenShortPrice <= 5 * MinChangUnit:
                     ShortOpenCloseMux = round((ShortStopLoss - OpenShortPrice) / MinChangUnit)
-                    putLogBarDealEvent("{} 做空线 OpenShortPrice = {}, ShortStopLoss = {}, 相差价位数 = {}, 不符合开仓条件"
+                    downLogBarDeal("{} 做空线 OpenShortPrice = {}, ShortStopLoss = {}, 相差价位数 = {}, 不符合开仓条件"
                                        .format(instrument, OpenShortPrice, ShortStopLoss, ShortOpenCloseMux), freq)
                     sendTradeDr["空开仓线"] = 1
                     sendTradeDr["空止损线"] = 2
                     sendTradeDr["空止盈线"] = 0
             else:
-                putLogBarDealEvent("无须判断止损幅度与最小变量单位的大小", freq)
+                downLogBarDeal("无须判断止损幅度与最小变量单位的大小", freq)
     #endregion
     # 整个下单判断
     if TradeDuoOkStatus != 5 and TradeKongOkStatus != 5:
         if TradeDuoOkStatus == 3 and TradeKongOkStatus == 3:
-            putLogBarDealEvent("{} 做多与做空的OD均不满足重叠度条件，不下单".format(instrument), freq)
+            downLogBarDeal("{} 做多与做空的OD均不满足重叠度条件，不下单".format(instrument), freq)
         else:
             # 判断做多：
             if TradeDuoOkStatus == 2 or TradeDuoOkStatus == 4:
-                putLogBarDealEvent("{} 不应该持仓，但实际持多仓，平 {} 手，市价平仓编号为 {}".format(instrument, pos1, orderRef + '9'), freq)
+                downLogBarDeal("{} 不应该持仓，但实际持多仓，平 {} 手，市价平仓编号为 {}".format(instrument, pos1, orderRef + '9'), freq)
                 orderEvent = Event(type_=theOrder)
                 orderEvent.dict_['InstrumentID'] = instrument
                 orderEvent.dict_['Direction'] = TThostFtdcDirectionType.THOST_FTDC_D_Sell
@@ -732,7 +672,7 @@ def getOrder(freq, goodsCode, orderRef, preOrderRef):
                 if TradeTime.time() not in dictGoodsSend[goodsCode]:
                     ee.put(orderEvent)
                 else:
-                    putLogBarDealEvent("{} 将委托单记录，待进行交易时间后，才进行下单操作".format(instrument), freq)
+                    downLogBarDeal("{} 将委托单记录，待进行交易时间后，才进行下单操作".format(instrument), freq)
                     dictFreqGoodsNextOrder[freq][goodsCode][getNextOrderDatetime(goodsCode, freq, TradeTime)] = orderEvent
                     pd.to_pickle(dictFreqGoodsNextOrder, 'pickle\\dictFreqGoodsNextOrder.pkl')
                 sendTradeDr["持有多手数"] = 0
@@ -741,15 +681,15 @@ def getOrder(freq, goodsCode, orderRef, preOrderRef):
                     sendTradeDr['本地下单码'] = orderRef + '1'
                     if dictFreqSet[freq][1]:
                         if LongParList[0] == "1":
-                            putLogBarDealEvent("{} 做多，开仓线参数 = {}，所以不会进行开仓操作".format(instrument, LongParList[0]), freq)
+                            downLogBarDeal("{} 做多，开仓线参数 = {}，所以不会进行开仓操作".format(instrument, LongParList[0]), freq)
                             sendTradeDr["多开仓线"] = 1
                             sendTradeDr["多止损线"] = 0
                             sendTradeDr["多止盈线"] = 2
                     else:
-                        putLogBarDealEvent("无须判断开仓倍数为1时，是否开仓", freq)
+                        downLogBarDeal("无须判断开仓倍数为1时，是否开仓", freq)
                     if sendTradeDr["多开仓线"] != 1:
                         # bar内止盈，则按止盈倍数进行调整
-                        putLogBarDealEvent("{} 进行 bar 内做多止赢与止损的调整".format(instrument), freq)
+                        downLogBarDeal("{} 进行 bar 内做多止赢与止损的调整".format(instrument), freq)
                         if InBarCloseAtNMuxFlag == "1":
                             IntervalPrice = OpenLongPrice + (LongStopProfit - OpenLongPrice) * StopAbtainInBarMux
                             LongStopProfit = changePriceLine(IntervalPrice, MinChangUnit, "多", "止盈")
@@ -766,7 +706,7 @@ def getOrder(freq, goodsCode, orderRef, preOrderRef):
                 else:
                     sendTradeDr['本地下单码'] = orderRef + '0'
             if TradeKongOkStatus == 2 or TradeKongOkStatus == 4:
-                putLogBarDealEvent("{} 不应该持仓，但实际持空仓，平 {} 手，市价平仓编号为 {}".format(instrument, pos2, orderRef + '9'), freq)
+                downLogBarDeal("{} 不应该持仓，但实际持空仓，平 {} 手，市价平仓编号为 {}".format(instrument, pos2, orderRef + '9'), freq)
                 orderEvent = Event(type_=theOrder)
                 orderEvent.dict_['InstrumentID'] = instrument
                 orderEvent.dict_['Direction'] = TThostFtdcDirectionType.THOST_FTDC_D_Buy
@@ -779,7 +719,7 @@ def getOrder(freq, goodsCode, orderRef, preOrderRef):
                 if TradeTime.time() not in dictGoodsSend[goodsCode]:
                     ee.put(orderEvent)
                 else:
-                    putLogBarDealEvent("{} 将委托单记录，待进行交易时间后，才进行下单操作".format(instrument), freq)
+                    downLogBarDeal("{} 将委托单记录，待进行交易时间后，才进行下单操作".format(instrument), freq)
                     dictFreqGoodsNextOrder[freq][goodsCode][getNextOrderDatetime(goodsCode, freq, TradeTime)] = orderEvent
                     pd.to_pickle(dictFreqGoodsNextOrder, 'pickle\\dictFreqGoodsNextOrder.pkl')
                 sendTradeDr["持有空手数"] = 0
@@ -789,14 +729,14 @@ def getOrder(freq, goodsCode, orderRef, preOrderRef):
                         sendTradeDr['本地下单码'] = orderRef + '1'
                     if dictFreqSet[freq][1]:
                         if ShortParList[0] == "-1":
-                            putLogBarDealEvent("{} 做空，开仓线参数 = {}，所以不会进行开仓操作".format(instrument, ShortParList[0]), freq)
+                            downLogBarDeal("{} 做空，开仓线参数 = {}，所以不会进行开仓操作".format(instrument, ShortParList[0]), freq)
                             sendTradeDr["空开仓线"] = 1
                             sendTradeDr["空止损线"] = 0
                             sendTradeDr["空止盈线"] = 2
                     else:
-                        putLogBarDealEvent("无须判断开仓倍数为1时，是否开仓", freq)
+                        downLogBarDeal("无须判断开仓倍数为1时，是否开仓", freq)
                     if sendTradeDr["空开仓线"] != 1:
-                        putLogBarDealEvent("{} 进行 bar 内做空止赢与止损的调整".format(instrument), freq)
+                        downLogBarDeal("{} 进行 bar 内做空止赢与止损的调整".format(instrument), freq)
                         # bar内止盈，则按止盈倍数进行调整
                         if InBarCloseAtNMuxFlag == "1":
                             IntervalPrice = OpenShortPrice + (ShortStopProfit - OpenShortPrice) * StopAbtainInBarMux
@@ -814,28 +754,28 @@ def getOrder(freq, goodsCode, orderRef, preOrderRef):
                 else:
                     sendTradeDr['本地下单码'] = orderRef + '0'
             if sendTradeDr['本地下单码'][-1:] == '1':
-                putLogBarDealEvent("本频段操作为开仓单", freq)
+                downLogBarDeal("本频段操作为开仓单", freq)
                 if TradeTime.date() in listHolidayDatetime:
                     if TradeTime.time() in [PreLastTimeNon, LastTimeNon]:
-                        putLogBarDealEvent("{} 今天为节假日前一日, 没有夜盘数据, "
+                        downLogBarDeal("{} 今天为节假日前一日, 没有夜盘数据, "
                                                "这个Bar数据为倒数第二个Bar数据, 或者最后一个bar, 所以不进行开仓操作".format(instrument, TradeTime), freq)
                         return
                 elif (TradeTime - timedelta(hours=4)).date() == thisWeekDay.iat[-1]:
                     if dictGoodsLast[goodsCode] in [time(15), time(15, 15)]:
                         if TradeTime.time() in [PreLastTimeNon, LastTimeNon]:
-                            putLogBarDealEvent("{} 本周倒数第二bar时间: 或者最后一个bar, {} ,且均待开仓，则不再开仓！ 所以不进行开仓操作".format(instrument,
+                            downLogBarDeal("{} 本周倒数第二bar时间: 或者最后一个bar, {} ,且均待开仓，则不再开仓！ 所以不进行开仓操作".format(instrument,
                                                                                                      TradeTime), freq)
                             return
                     else:
                         if theLastTimeNight == dictGoodsLast[goodsCode]:
                             if TradeTime.time() in [PreLastTimeNight, LastTimeNight]:
-                                putLogBarDealEvent("{} 本周倒数第二bar时间或者最后一个bar: {},且均待开仓，则不再开仓！, 所以不进行开仓操作".format(
+                                downLogBarDeal("{} 本周倒数第二bar时间或者最后一个bar: {},且均待开仓，则不再开仓！, 所以不进行开仓操作".format(
                                     instrument,
                                     TradeTime), freq)
                                 return
                         else:
                             if TradeTime.time() in [theLastTimeNight, LastTimeNight]:
-                                putLogBarDealEvent("{} 本周最后一个bar时间: {} ,且均待开仓，则不再开仓！ 所以不进行开仓操作".format(
+                                downLogBarDeal("{} 本周最后一个bar时间: {} ,且均待开仓，则不再开仓！ 所以不进行开仓操作".format(
                                     instrument,
                                     TradeTime), freq)
                                 return
@@ -850,44 +790,44 @@ def getOrder(freq, goodsCode, orderRef, preOrderRef):
                     sendTradeDr["空止损线"] = 2
                 # 进行涨跌停板的调整
                 if sendTradeDr["多开仓线"] == 1 and sendTradeDr["空开仓线"] == 1:
-                    putLogBarDealEvent("{} 多开仓线 = 1 空开仓线 = 1".format(instrument), freq)
+                    downLogBarDeal("{} 多开仓线 = 1 空开仓线 = 1".format(instrument), freq)
                     return
                 else:
                     if DayTradeEnable == 1 and NightTradeEnable != 1:
                         if (TradeTime.time() < time(16) and TradeTime.time() >= time(8)) or TradeTime.time() == dictGoodsLast[goodsCode]:
                             # 有夜盘的同时， TradeTime.time() == theLastTimeNon 不开外，其它开
                             if not ((TradeTime.time() == theLastTimeNon) and (dictGoodsLast[goodsCode] not in [time(15), time(15, 15)])):
-                                putLogBarDealEvent("{} 夜盘不开仓，仅平仓；日盘可开平，现在是日盘，可进行开平仓".format(instrument), freq)
-                                putLogBarDealEvent(str(sendTradeDr), freq)
-                                event = Event(type_ = EVENT_SHOWORDERDB)
+                                downLogBarDeal("{} 夜盘不开仓，仅平仓；日盘可开平，现在是日盘，可进行开平仓".format(instrument), freq)
+                                downLogBarDeal(str(sendTradeDr), freq)
+                                event = Event(type_ = EVENT_SHOWCOMMAND)
                                 event.dict_ = sendTradeDr
                                 ee.put(event)
                             else:
-                                putLogBarDealEvent("{} 有夜盘的同时，tradeTime 到达 15:00 所有不开仓操作".format(instrument), freq)
+                                downLogBarDeal("{} 有夜盘的同时，tradeTime 到达 15:00 所有不开仓操作".format(instrument), freq)
                         else:
-                            putLogBarDealEvent("{} 夜盘不开仓，仅平仓；日盘可开平，现在有夜盘，不进行开仓".format(instrument), freq)
+                            downLogBarDeal("{} 夜盘不开仓，仅平仓；日盘可开平，现在有夜盘，不进行开仓".format(instrument), freq)
                     elif DayTradeEnable != 1 and NightTradeEnable == 1:
                         if TradeTime.time() > time(16) and TradeTime.time() < time(8):
                             if TradeTime != theLastTimeNight:
-                                putLogBarDealEvent("{} 日盘不开仓，仅平仓；夜盘可开平，现在是夜盘，可进行开仓".format(instrument), freq)
-                                putLogBarDealEvent(str(sendTradeDr), freq)
-                                event = Event(type_ = EVENT_SHOWORDERDB)
+                                downLogBarDeal("{} 日盘不开仓，仅平仓；夜盘可开平，现在是夜盘，可进行开仓".format(instrument), freq)
+                                downLogBarDeal(str(sendTradeDr), freq)
+                                event = Event(type_ = EVENT_SHOWCOMMAND)
                                 event.dict_ = sendTradeDr
                                 ee.put(event)
                             else:
-                                putLogBarDealEvent("{} 日盘不开仓，仅平仓；夜盘可开平，可能在日盘开仓，不进行开仓".format(instrument), freq)
+                                downLogBarDeal("{} 日盘不开仓，仅平仓；夜盘可开平，可能在日盘开仓，不进行开仓".format(instrument), freq)
                         else:
-                            putLogBarDealEvent("{} 日盘不开仓，仅平仓；夜盘可开平，现在是日盘，不进行开仓".format(instrument), freq)
+                            downLogBarDeal("{} 日盘不开仓，仅平仓；夜盘可开平，现在是日盘，不进行开仓".format(instrument), freq)
                     elif DayTradeEnable == 1 and NightTradeEnable == 1:
-                        putLogBarDealEvent("{} 日盘夜盘均可开平".format(instrument), freq)
-                        putLogBarDealEvent(str(sendTradeDr), freq)
-                        event = Event(type_ = EVENT_SHOWORDERDB)
+                        downLogBarDeal("{} 日盘夜盘均可开平".format(instrument), freq)
+                        downLogBarDeal(str(sendTradeDr), freq)
+                        event = Event(type_ = EVENT_SHOWCOMMAND)
                         event.dict_ = sendTradeDr
                         ee.put(event)
                     elif DayTradeEnable != 1 and NightTradeEnable != 1:
-                        putLogBarDealEvent("{} 日夜盘均不下单".format(instrument), freq)
+                        downLogBarDeal("{} 日夜盘均不下单".format(instrument), freq)
             elif sendTradeDr['本地下单码'][-1:] == '0':
-                putLogBarDealEvent("本频段操作为止盈止损单", freq)
+                downLogBarDeal("本频段操作为止盈止损单", freq)
                 if pos1 > 0:
                     theDirectionType = TThostFtdcDirectionType.THOST_FTDC_D_Sell
                     theOffsetFlagType = chr(TThostFtdcOffsetFlagType.THOST_FTDC_OF_Close.value)
@@ -901,7 +841,7 @@ def getOrder(freq, goodsCode, orderRef, preOrderRef):
                 # region 进行，市价下单操作，一般是最后交易时间进行的操作
                 if TradeTime.date() in listHolidayDatetime:
                     if TradeTime.time() >= LastTimeNon:
-                        putLogBarDealEvent("进行市价平仓操作", freq)
+                        downLogBarDeal("进行市价平仓操作", freq)
                         orderEvent = Event(type_=theOrder)
                         orderEvent.dict_['InstrumentID'] = instrument
                         orderEvent.dict_['Direction'] = theDirectionType
@@ -916,7 +856,7 @@ def getOrder(freq, goodsCode, orderRef, preOrderRef):
                 elif (TradeTime - timedelta(hours=4)).date() == thisWeekDay.iat[-1]:
                     if dictGoodsLast[goodsCode] in [time(15), time(15, 15)]:
                         if TradeTime.time() >= LastTimeNon:
-                            putLogBarDealEvent("进行市价平仓操作", freq)
+                            downLogBarDeal("进行市价平仓操作", freq)
                             orderEvent = Event(type_=theOrder)
                             orderEvent.dict_['InstrumentID'] = instrument
                             orderEvent.dict_['Direction'] = theDirectionType
@@ -931,10 +871,10 @@ def getOrder(freq, goodsCode, orderRef, preOrderRef):
                     else:
                         if theLastTimeNight == dictGoodsLast[goodsCode]:
                             if TradeTime.time() == theLastTimeNight or TradeTime.time() == LastTimeNight:
-                                putLogBarDealEvent("{} 本周倒数第二bar时间或者最后一个bar: {},且均待开仓，则不再开仓！, 所以不进行开仓操作".format(
+                                downLogBarDeal("{} 本周倒数第二bar时间或者最后一个bar: {},且均待开仓，则不再开仓！, 所以不进行开仓操作".format(
                                     instrument,
                                     TradeTime), freq)
-                                putLogBarDealEvent("进行市价平仓操作", freq)
+                                downLogBarDeal("进行市价平仓操作", freq)
                                 orderEvent = Event(type_=theOrder)
                                 orderEvent.dict_['InstrumentID'] = instrument
                                 orderEvent.dict_['Direction'] = theDirectionType
@@ -948,8 +888,8 @@ def getOrder(freq, goodsCode, orderRef, preOrderRef):
                                 return
                         else:
                             if TradeTime.time() == theLastTimeNight:
-                                putLogBarDealEvent("{} 本周最后一个bar时间: {} ,且均待开仓，则不再开仓！ 所以不进行开仓操作".format(instrument,TradeTime), freq)
-                                putLogBarDealEvent("进行市价平仓操作", freq)
+                                downLogBarDeal("{} 本周最后一个bar时间: {} ,且均待开仓，则不再开仓！ 所以不进行开仓操作".format(instrument,TradeTime), freq)
+                                downLogBarDeal("进行市价平仓操作", freq)
                                 orderEvent = Event(type_=theOrder)
                                 orderEvent.dict_['InstrumentID'] = instrument
                                 orderEvent.dict_['Direction'] = theDirectionType
@@ -965,7 +905,7 @@ def getOrder(freq, goodsCode, orderRef, preOrderRef):
 
                 # region 为开仓单下止盈与止损单操作
                 if pos1 > 0:
-                    putLogBarDealEvent("因为这个下单为止盈止损单，现在持有多仓，现在下多止盈单",freq)
+                    downLogBarDeal("因为这个下单为止盈止损单，现在持有多仓，现在下多止盈单",freq)
                     orderEvent = Event(type_=theOrder)
                     orderEvent.dict_['InstrumentID'] = instrument
                     orderEvent.dict_['Direction'] = TThostFtdcDirectionType.THOST_FTDC_D_Sell
@@ -978,11 +918,11 @@ def getOrder(freq, goodsCode, orderRef, preOrderRef):
                     if TradeTime.time() not in dictGoodsSend[goodsCode]:
                         ee.put(orderEvent)
                     else:
-                        putLogBarDealEvent("{} 将委托单记录，待进行交易时间后，才进行下单操作".format(instrument), freq)
+                        downLogBarDeal("{} 将委托单记录，待进行交易时间后，才进行下单操作".format(instrument), freq)
                         dictFreqGoodsNextOrder[freq][goodsCode][getNextOrderDatetime(goodsCode, freq, TradeTime)] = orderEvent
                         pd.to_pickle(dictFreqGoodsNextOrder, 'pickle\\dictFreqGoodsNextOrder.pkl')
                 elif pos2 > 0:
-                    putLogBarDealEvent("因为这个下单为止盈止损单，现在持有空仓，现在下空止盈单", freq)
+                    downLogBarDeal("因为这个下单为止盈止损单，现在持有空仓，现在下空止盈单", freq)
                     orderEvent = Event(type_=theOrder)
                     orderEvent.dict_['InstrumentID'] = instrument
                     orderEvent.dict_['Direction'] = TThostFtdcDirectionType.THOST_FTDC_D_Buy
@@ -995,18 +935,18 @@ def getOrder(freq, goodsCode, orderRef, preOrderRef):
                     if TradeTime.time() not in dictGoodsSend[goodsCode]:
                         ee.put(orderEvent)
                     else:
-                        putLogBarDealEvent("{} 将委托单记录，待进行交易时间后，才进行下单操作".format(instrument), freq)
+                        downLogBarDeal("{} 将委托单记录，待进行交易时间后，才进行下单操作".format(instrument), freq)
                         dictFreqGoodsNextOrder[freq][goodsCode][getNextOrderDatetime(goodsCode, freq, TradeTime)] = orderEvent
                         pd.to_pickle(dictFreqGoodsNextOrder, 'pickle\\dictFreqGoodsNextOrder.pkl')
                 # endregion
-                event = Event(type_=EVENT_SHOWORDERDB)
+                event = Event(type_=EVENT_SHOWCOMMAND)
                 event.dict_ = sendTradeDr
                 ee.put(event)
     else:
         if TradeDuoOkStatus == 5:
-            putLogBarDealEvent("{} 周交易明细表持多仓位，实际没持仓，不开仓".format(instrument), freq)
+            downLogBarDeal("{} 周交易明细表持多仓位，实际没持仓，不开仓".format(instrument), freq)
         elif TradeKongOkStatus == 5:
-            putLogBarDealEvent("{} 周交易明细表持空仓位，实际没持仓，不开仓".format(instrument), freq)
+            downLogBarDeal("{} 周交易明细表持空仓位，实际没持仓，不开仓".format(instrument), freq)
 
 
 

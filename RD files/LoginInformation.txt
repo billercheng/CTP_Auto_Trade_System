@@ -5,6 +5,6 @@ front_addr： tcp://180.168.146.187:10100,tcp://180.168.146.187:10110
 product_info： RadarTrade
 app_id： 8826243593
 auth_code： 0000000000000000
-listFreq： [5, 6, 7]
+listFreq： [5]
 programName： simnow
 defaultFreqSet： [True, True, True, True, True, 全球]

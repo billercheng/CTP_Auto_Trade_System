@@ -1,17 +1,16 @@
 from py_ctp.ctp_trade import Trade
 from parameter import *
-from function import *
 
 class TdApi:
-    def __init__(self, userid, password, brokerid, RegisterFront):
+    def __init__(self, userid, password, brokerid, RegisterFront, product_info, app_id, auth_code):
         # 初始化账号
         self.t = Trade()
         self.userid = userid
         self.password = password
         self.brokerid = brokerid
-        self.product_info = 'Radar'
-        self.app_id = 'client_RadarTrade_1.0.1'
-        self.auth_code = 'RQXVEWK5O0E6QOWB'
+        self.product_info = product_info
+        self.app_id = app_id
+        self.auth_code = auth_code
         api = self.t.CreateApi()
         spi = self.t.CreateSpi()
         self.t.RegisterSpi(spi)
@@ -37,13 +36,14 @@ class TdApi:
 
     def onFrontConnected(self):
         """服务器连接"""
+        downLogProgram('交易服务器连接成功')
         self.t.ReqAuthenticate(self.brokerid, self.userid, self.product_info, self.auth_code, self.app_id)
 
     def onFrontDisconnected(self, n):
-        putLogEvent('交易服务器连接断开')
+        downLogProgram('交易服务器连接断开')
 
     def onRspAuthenticate(self, pRspAuthenticateField: CThostFtdcRspAuthenticateField, pRspInfo: CThostFtdcRspInfoField, nRequestID: int, bIsLast: bool):
-        # putLogEvent('auth：{0}:{1}'.format(pRspInfo.getErrorID(), pRspInfo.getErrorMsg()))
+        # downLogProgram('auth：{0}:{1}'.format(pRspInfo.getErrorID(), pRspInfo.getErrorMsg()))
         self.t.ReqUserLogin(BrokerID=self.brokerid, UserID=self.userid, Password=self.password, UserProductInfo=self.product_info)
 
     def onRspUserLogin(self, data, error, n, last):
@@ -58,7 +58,7 @@ class TdApi:
         else:
             log = '交易服务器登陆回报，错误代码：' + str(error.getErrorID()) + \
                   ',   错误信息：' + str(error.getErrorMsg())
-        putLogEvent(log)
+        downLogProgram(log)
 
     def onRspUserLogout(self, data, error, n, last):
         if error.getErrorID() == 0:
@@ -67,7 +67,7 @@ class TdApi:
         else:
             log = '交易服务器登出回报，错误代码：' + str(error.getErrorID()) + \
                   ',   错误信息：' + str(error.getErrorMsg())
-        putLogEvent(log)
+        downLogProgram(log)
 
     def onRtnInstrumentStatus(self, data):
         pass
@@ -77,7 +77,7 @@ class TdApi:
 
     def onRspSettlementInfoConfirm(self, data, error, n, last):
         """确认结算信息回报"""
-        putLogEvent(str(data))
+        downLogProgram(str(data))
 
     def onRspQryInvestorPosition(self, data, error, n, last):
         """持仓查询回报"""
@@ -114,13 +114,13 @@ class TdApi:
         else:
             log = ('持仓查询回报，错误代码：' + str(error.getErrorID()) +
                    ',   错误信息：' + str(error.getErrorMsg()))
-            putLogEvent(log)
+            downLogProgram(log)
         if last == True:
             self.checkPosition = True
 
     def getPosition(self):
         self.checkPosition = False
-        putLogEvent("读取账号持仓情况")
+        downLogProgram("读取账号持仓情况")
         self.t.ReqQryInvestorPosition(self.brokerid, self.userid)
 
     def onRspQryTradingAccount(self, data, error, n, last):
@@ -138,7 +138,7 @@ class TdApi:
             ee.put(event)
         else:
             log = ('账户查询回报，错误代码：' + str(error.getErrorID()) + ',   错误信息：' + str(error.getErrorMsg()))
-            putLogEvent(log)
+            downLogProgram(log)
 
     def getAccount(self):
         self.t.ReqQryTradingAccount(self.brokerid, self.userid)
