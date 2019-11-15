@@ -151,10 +151,10 @@ def changePriceLine(price, MinChangUnit, DuoOrKong, OpenOrClose):  # 将价格�
 
 def judgeExecTimer():  # qtimer 的执行时间，不应该在切割点上执行
     now = datetime.now()
-    if now.second > 57 or now.second < 20:
-        return False
-    else:
+    if 20 < now.second < 57:
         return True
+    else:
+        return False
 
 def judgeInTradeTime(goodsCode):  # 判断当前时间是否在 goodsCode 的交易时间内
     now = datetime.now()

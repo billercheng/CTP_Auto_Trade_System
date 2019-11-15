@@ -519,10 +519,9 @@ class RdMd():
             orderEvent.dict_['VolumeTotalOriginal'] = var["VolumeTotalOriginal"]
             self.orderCommand(orderEvent)
         elif dictTemp['错误原因'] == 'CTP:资金不足':
-            downLogBarDeal('资金不足')
+            downLogProgram('资金不足')
         else:
             assert False  # 如果错误不在预期之类，直接中断程序吧
-
 
     def showPositionEvent(self, event):
         with lockDictFreqPosition:
