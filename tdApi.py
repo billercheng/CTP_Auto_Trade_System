@@ -1,5 +1,7 @@
 from py_ctp.ctp_trade import Trade
 from parameter import *
+from PyQt5.QtWidgets import QApplication
+import sys
 
 class TdApi:
     def __init__(self, userid, password, brokerid, RegisterFront, product_info, app_id, auth_code):
@@ -22,7 +24,6 @@ class TdApi:
         self.t.OnRtnInstrumentStatus = self.onRtnInstrumentStatus
         self.t.OnRspQryInstrument = self.onRspQryInstrument  # 查询全部交易合约
         self.t.OnRspSettlementInfoConfirm = self.onRspSettlementInfoConfirm  # 结算单确认，显示登陆日期
-        self.t.OnRspQryInvestorPosition = self.onRspQryInvestorPosition  # 查询持仓
         self.t.OnRspQryTradingAccount = self.onRspQryTradingAccount  # 查询账户
         self.t.OnRtnOrder = self.onRtnOrder  # 报单
         self.t.OnRtnTrade = self.onRtnTrade  # 成交
@@ -77,46 +78,7 @@ class TdApi:
 
     def onRspSettlementInfoConfirm(self, data, error, n, last):
         """确认结算信息回报"""
-        downLogProgram(str(data))
-
-    def onRspQryInvestorPosition(self, data, error, n, last):
-        """持仓查询回报"""
-        if error.getErrorID() == 0:
-            tmp = {}
-            tmp["代码"] = data.getInstrumentID()
-            if tmp["代码"][-4:].isdigit():
-                if tmp["代码"][:-4] not in dictGoodsChg.keys():
-                    if last == True:
-                        self.checkPosition = True
-                    return
-                goodsCode = tmp["代码"][:-4] + '.' + dictGoodsChg[tmp["代码"][:-4]]
-            else:
-                if tmp["代码"][:-3] not in dictGoodsChg.keys():
-                    if last == True:
-                        self.checkPosition = True
-                    return
-                goodsCode = tmp["代码"][:-3] + '.' + dictGoodsChg[tmp["代码"][:-3]]
-            tmp["名称"] = dictGoodsName[goodsCode]
-            if data.getPosiDirection() == TThostFtdcPosiDirectionType.THOST_FTDC_PD_Long:
-                tmp["方向"] = "买/多"
-                tmp["数量"] = data.getPosition()
-            else:
-                tmp["方向"] = "卖/空"
-                tmp["数量"] = data.getPosition() * (-1)
-            tmp["多头冻结"] = data.getLongFrozen()
-            tmp["空头冻结"] = data.getShortFrozen()
-            tmp["持仓成本"] = round(data.getPositionCost(), 2)
-            tmp["持仓盈亏"] = data.getPositionProfit()
-            tmp["开仓成本"] = round(data.getOpenCost(), 2)
-            tmp["今日持仓"] = data.getTodayPosition()
-            if tmp["数量"] != 0:
-                dfPosition.loc[dfPosition.shape[0]] = tmp
-        else:
-            log = ('持仓查询回报，错误代码：' + str(error.getErrorID()) +
-                   ',   错误信息：' + str(error.getErrorMsg()))
-            downLogProgram(log)
-        if last == True:
-            self.checkPosition = True
+        downLogProgram('账号：{}, 日期：{}, 时间：{}'.format(data.getInvestorID(), data.getConfirmDate(), data.getConfirmTime()))
 
     def getPosition(self):
         self.checkPosition = False
@@ -156,11 +118,11 @@ class TdApi:
         ee.put(event)
 
     # 预下单，没有用了
-    # def onRspParkedOrderInsert(self, data=CThostFtdcParkedOrderField, pRspInfo=CThostFtdcRspInfoField,
-    #                            nRequestID=int, bIsLast=bool):
-    #     event = Event(type_=EVENT_ORDERPARK)
-    #     event.dict_['data'] = data._fields_
-    #     ee.put(event)
+    def onRspParkedOrderInsert(self, data=CThostFtdcParkedOrderField, pRspInfo=CThostFtdcRspInfoField,
+                               nRequestID=int, bIsLast=bool):
+        event = Event(type_=EVENT_ORDERPARK)
+        event.dict_['data'] = data._fields_
+        ee.put(event)
 
     def onErrRtnOrderInsert(self, data, error):
         """发单错误回报（交易所）"""
@@ -186,6 +148,8 @@ class TdApi:
             exChangeID = 'CZCE'
         elif goodsCode.split('.')[1] == 'CFE':
             exChangeID = 'CFFEX'
+        elif goodsCode.split('.')[1] == 'INE':
+            exChangeID = 'INE'
         self.t.ReqOrderInsert(BrokerID=self.brokerid,
                               InvestorID=self.userid,
                               InstrumentID=instrumentid,
@@ -273,6 +237,17 @@ class TdApi:
     # region 预埋单
     def sendorderPark(self, instrumentid, orderref, price, vol, direction, offset,
                       OrderPriceType=TThostFtdcOrderPriceTypeType.THOST_FTDC_OPT_LimitPrice):
+        goodsCode = getGoodsCode(instrumentid)
+        if goodsCode.split('.')[1] == 'SHF':
+            exChangeID = 'SHFE'
+        elif goodsCode.split('.')[1] == 'DCE':
+            exChangeID = 'DCE'
+        elif goodsCode.split('.')[1] == 'CZC':
+            exChangeID = 'CZCE'
+        elif goodsCode.split('.')[1] == 'CFE':
+            exChangeID = 'CFFEX'
+        elif goodsCode.split('.')[1] == 'INE':
+            exChangeID = 'INE'
         self.t.ReqParkedOrderInsert(BrokerID=self.brokerid,
                                     InvestorID=self.userid,
                                     InstrumentID=instrumentid,
@@ -288,7 +263,8 @@ class TdApi:
                                     VolumeCondition=TThostFtdcVolumeConditionType.THOST_FTDC_VC_AV,
                                     MinVolume=1,
                                     ForceCloseReason=TThostFtdcForceCloseReasonType.THOST_FTDC_FCC_NotForceClose,
-                                    ContingentCondition=TThostFtdcContingentConditionType.THOST_FTDC_CC_Immediately)
+                                    ContingentCondition=TThostFtdcContingentConditionType.THOST_FTDC_CC_Immediately,
+                                    ExchangeID=exChangeID)
         return orderref
 
     def buyPark(self, symbol, orderref, price, vol):  # 多开
@@ -355,6 +331,5 @@ class TdApi:
             # 可以避免多线程下数据的混乱
             if dictInstrumentUpDownPrice.get(event.dict_['InstrumentID'], [0, 0]) == [0, 0]:
                 dictInstrumentUpDownPrice[event.dict_['InstrumentID']] = [data.getUpperLimitPrice(), data.getLowerLimitPrice()]
-                print(dictInstrumentUpDownPrice[event.dict_['InstrumentID']])
         ee.put(event)
     # endregion

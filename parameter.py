@@ -27,7 +27,8 @@ def getWebServerTime(host):  # 启动时通过 web 修改本地时间
 def judgeCodeValue(code, dt):  # 本地下单码的有效时间，与本地时间进行比较
     listCode = code.split('.')
     theDate = pd.to_datetime(listCode[0])
-    theDateIndex = tradeDatetime.index(theDate)
+    listTradeDatetime = tradeDatetime.tolist()
+    theDateIndex = listTradeDatetime.index(theDate)
     freq = int(listCode[1])
     if freq not in listFreq:
         return False
@@ -36,9 +37,9 @@ def judgeCodeValue(code, dt):  # 本地下单码的有效时间，与本地时�
     end = dictFreqGoodsClose[freq][goodsCode][indexBar + 1 if indexBar + 1 != len(dictFreqGoodsClose[freq][goodsCode]) else 0]
     if end > time(20) or end < time(3):
         if end > time(20):
-            endTime = tradeDatetime[theDateIndex - 1] + timedelta(hours=end.hour, minutes=end.minute)
+            endTime = listTradeDatetime[theDateIndex - 1] + timedelta(hours=end.hour, minutes=end.minute)
         elif end < time(3):
-            endTime = tradeDatetime[theDateIndex - 1] + timedelta(hours=end.hour, minutes=end.minute) + timedelta(days=1)
+            endTime = listTradeDatetime[theDateIndex - 1] + timedelta(hours=end.hour, minutes=end.minute) + timedelta(days=1)
     else:
         endTime = theDate + timedelta(hours=end.hour, minutes=end.minute)
     if dt >= endTime:
@@ -148,6 +149,24 @@ def changePriceLine(price, MinChangUnit, DuoOrKong, OpenOrClose):  # 将价格�
                 price * (1 / MinChangUnit)) * MinChangUnit >= price else round(
                 price * (1 / MinChangUnit)) * MinChangUnit + MinChangUnit
 
+def judgeExecTimer():  # qtimer 的执行时间，不应该在切割点上执行
+    now = datetime.now()
+    if now.second > 57 or now.second < 20:
+        return False
+    else:
+        return True
+
+def judgeInTradeTime(goodsCode):  # 判断当前时间是否在 goodsCode 的交易时间内
+    now = datetime.now()
+    if (now - timedelta(hours=3)).date() in tradeDate.tolist():
+        now += timedelta(minutes=1)
+        nowTime = time(now.hour, now.minute)
+        if nowTime not in dictFreqGoodsClose[1][goodsCode]:
+            return False
+        else:
+            return True
+    else:
+        return False
 # endregion
 
 # 更改本地时间
@@ -160,6 +179,7 @@ ee = EventEngine()
 dictLoginInformation = {}
 listFreq = []
 defaultFreqSet = []
+staticMaxVolume = 10  # 最大的开仓次数
 with open('RD files\\LoginInformation.txt', 'r', encoding='UTF-8') as f:
     for row in f:
         if 'userid' in row:
@@ -190,6 +210,10 @@ with open('RD files\\LoginInformation.txt', 'r', encoding='UTF-8') as f:
                     defaultFreqSet.append(bool(each))
                 else:
                     defaultFreqSet.append(each)
+        if 'uniformCode' in row:
+            uniformCode = row.split('：')[1].strip()
+        if 'staticMaxVolume' in row:
+            staticMaxVolume = int(row.split('：')[1].strip())
 listFreqPlus = listFreq.copy()
 listFreqPlus.insert(0, 1)
 dictFreqSet = {}
@@ -200,6 +224,7 @@ for freq in listFreq:
 # 读取公共参数
 GoodsTab = pd.read_excel('RD files\\公共参数.xlsx', sheet_name='品种信息', index_col='品种名称')
 dfCapital = pd.read_excel('RD files\\公共参数.xlsx', sheet_name='账户资金表') # 读取帐号资金量
+captitalRate = dfCapital[dfCapital['账户名'] == defaultFreqSet[5]]['资金'].iat[0] / dfCapital['资金'].sum()  # 资金占比率
 dictCloseTimeClose = pd.read_pickle('pickle\\dictCloseTimeClose.pkl')  # 时间区间
 dictCloseTimeCloseNight = pd.read_pickle('pickle\\dictCloseTimeCloseNight.pkl')  # 时间区间
 dictGoodsName = {}
@@ -256,13 +281,25 @@ for freq in listFreqPlus:
             dictFreqGoodsCloseNight[freq][goodsCode] = dictCloseTimeCloseNight[freq][time(2, 30)]
         if freq == 1:
             dictGoodsLast[goodsCode] = dictFreqGoodsCloseNight[1][goodsCode][-1]
+# 获取风险系数
+now = datetime.now()
+dateMark = now.isoweekday()
+isOpenPosition = {}
+for goodsCode in dictGoodsName.keys():
+    isOpenPosition[goodsCode] = True
+if now.time() > time(16):
+    dateMark += 0.5
+dfCapital['风险系数'] = dfCapital[dateMark]
+if dateMark in []:
+    for goodsCode in dictGoodsName.keys():
+        isOpenPosition[goodsCode] = False
 
 # region 读取本地文件
 # 交易日
 dfDatetime = pd.read_csv('RD files\\tradeDay.csv', parse_dates=['tradeDatetime'])
-tradeDatetime = dfDatetime['tradeDatetime'].tolist()
+tradeDatetime = dfDatetime['tradeDatetime']
 listHolidayDatetime = dfDatetime[dfDatetime['holiday'] == 1]['tradeDatetime'].dt.date.tolist()
-tradeDate = pd.Series(tradeDatetime).dt.date
+tradeDate = tradeDatetime.dt.date
 now = datetime.now()
 s = dfDatetime['tradeDatetime'].copy()
 theTradeDay = s[s >= now - timedelta(hours=17, minutes=15)].iat[0]  # 获取当前的交易日名称
@@ -276,13 +313,13 @@ for num in range(DfWeek.shape[0]):
         week = DfWeek['周次'][num]
         weekStartTime = DfWeek['起始时间'][num]
         weekEndTime = DfWeek['结束时间'][num]
-thisWeekDay = tradeDate[(tradeDate >= weekStartTime.date()) & (tradeDate <= weekEndTime.date())]
-weekLastDay = thisWeekDay.iat[-1]
+thisWeekDay = tradeDate[(tradeDate >= weekStartTime.date()) & (tradeDate <= weekEndTime.date())]  # 本周有哪些的交易日
+weekLastDay = thisWeekDay.iat[-1]  # 本周交易日的最后一天
 # 交易参数综合表
 ParTab = {}
 for freq in listFreq:
     ParTab[freq] = pd.read_excel('RD files\\CTA交易参数表-综合版.xlsx',
-                                 sheet_name='CTA{}'.format(freq)).set_index('品种名称')
+                                 sheet_name='CTA{}'.format(freq)).set_index('品种名称')  # CTA交易参数表-综合表
 dictFreqUnGoodsCode = {}  # 不进行交易的大类品种
 setTheGoodsCode = set()  # 进行交易的品种代码
 for freq in listFreqPlus:
@@ -295,19 +332,6 @@ for freq in listFreqPlus:
                 dictFreqUnGoodsCode[freq].append(goodsCode)
             else:
                 setTheGoodsCode.add(goodsCode)
-# 将易的品种写出来吧
-dictFreqUnGoodsCode = {}
-setUnGoodsCode = set()
-for freq in listFreqPlus:
-    dictFreqUnGoodsCode[freq] = []
-    if freq != 1:
-        for goodsCode in dictGoodsName.keys():
-            DayTradeEnable = ParTab[freq]["日盘交易标识"][dictGoodsName[goodsCode]]  # 日盘与夜盘开仓的情况，真的很重要的吧
-            NightTradeEnable = ParTab[freq]["夜盘交易标识"][dictGoodsName[goodsCode]]
-            if DayTradeEnable == 0 and NightTradeEnable == 0:
-                dictFreqUnGoodsCode[freq].append(goodsCode)
-            else:
-                setUnGoodsCode.add(goodsCode)
 # endregion
 
 dictGoodsAdj = {}  # 记录主力合约表
@@ -321,11 +345,11 @@ dictFreqDb = {}
 dictFreqDoc = {}  # 频段 对应 数据库中所有表格名称
 for freq in listFreq:
     mongodbName = 'cta{}_'.format(freq) + programName  # 数据库名称使用 cta{}_测1
-    con = pymongo.MongoClient("mongodb://localhost:27017/")  # 建立连接
-    dictFreqDb[freq] = con[mongodbName]  # 建立 runoobdb 数据库连接
+    con = pymongo.MongoClient("mongodb://localhost:27017/")  # 建立本地mongodb连接，用于储存持仓信息，交易记录，委托记录
+    dictFreqDb[freq] = con[mongodbName]  # 建立 runoobdb 数据库连接，数据库名称
     dictFreqDoc[freq] = dictFreqDb[freq].list_collection_names()  # 数据库对应表格名称
 # 持仓量
-listFreqPosition = ['代码', '名称', '方向', '数量', '时间', '价格', '持仓盈亏']
+listFreqPosition = ['代码', '名称', '方向', '数量', '时间', '价格', '持仓盈亏']  # 持仓信息
 dictFreqPosition = {}
 for freq in listFreq:
     if '频段持仓' in dictFreqDoc[freq]:
@@ -365,19 +389,19 @@ for freq in listFreq:
     dictFreqTradeSource[freq] = pd.DataFrame(columns=listTradeSourceColumns)
     # 建立连接
     db = dictFreqDb[freq]
-    if '成交记录' in dictFreqDoc[freq]:
-        temp = db['成交记录']
+    if '频段成交' in dictFreqDoc[freq]:
+        temp = db['频段成交']
         temp.drop()
 # 错误单
-listFreqError = ['本地下单码', '时间', '代码', '名称', '方向', '价格', '数量']
+listFreqError = ['本地下单码', '代码', '名称', '方向', '价格', '数量', '错误原因', '时间']
 dictFreqError = {}
 for freq in listFreq:
     # 建立表格
     dictFreqError[freq] = pd.DataFrame(columns=listFreqError)
     # 建立连接
     db = dictFreqDb[freq]
-    if '错误记录' in dictFreqDoc[freq]:
-        temp = db['错误记录']
+    if '错误委托单' in dictFreqDoc[freq]:
+        temp = db['错误委托单']
         temp.drop()
 # 周交易明细表
 listWeekTradeTab = ['交易时间', '品种名称', '交易合约号', '周次', '开仓时间', '平仓时间', '开平仓标识多', '单笔浮赢亏多', '开平仓标识空', '单笔浮赢亏空', '总净值浮赢亏', '总净值最大回撤',
@@ -408,9 +432,18 @@ lockDfCommand = threading.Lock()
 # endregion
 
 # 关于dictOrderRef保存记录
-listTradeID = pd.read_pickle('pickle\\listTradeID.pkl')
-dictOrderRef = pd.read_pickle('pickle\\dictOrderRef.pkl')
-dictRefOrder = pd.read_pickle('pickle\\dictRefOrder.pkl')
+if 'listTradeID.pkl' in os.listdir('pickle'):
+    listTradeID = pd.read_pickle('pickle\\listTradeID.pkl')
+else:
+    listTradeID = []
+if 'dictOrderRef.pkl' in os.listdir('pickle'):
+    dictOrderRef = pd.read_pickle('pickle\\dictOrderRef.pkl')
+else:
+    dictOrderRef = {}
+if 'dictRefOrder.pkl' in os.listdir('pickle'):
+    dictRefOrder = pd.read_pickle('pickle\\dictRefOrder.pkl')
+else:
+    dictRefOrder = {}
 s = dfDatetime['tradeDatetime'].copy()
 s = s[s <= now].iloc[-2:]
 listDayTemp = [theTradeDay.strftime('%m%d')]
@@ -424,6 +457,7 @@ for each in list(listTradeID):
     if each[4:8] not in listDayTemp:
         listTradeID.remove(each)
 dictPreOrderRefOrder = {}  # 建立监测到撤单后，才进行下单的情况
+listStopProfit = []  # 记录哪些委托单是止盈的
 pd.to_pickle(dictOrderRef, 'pickle\\dictOrderRef.pkl')
 pd.to_pickle(dictRefOrder, 'pickle\\dictRefOrder.pkl')
 pd.to_pickle(listTradeID, 'pickle\\listTradeID.pkl')
@@ -457,7 +491,7 @@ for vector in mvlenvector:
     listOverLap.extend(['重叠度高_{}'.format(vector), '重叠度低_{}'.format(vector), '重叠度收_{}'.format(vector)])
 
 # socket 通迅
-host = '192.168.1.121'
+host = 'localhost'
 port = 8888
 
 # 下单日志
@@ -483,16 +517,11 @@ for freq in listFreq:
     theLog.setLevel(logging.INFO)
     dictFreqLog[freq] = theLog  # 对应的分钟处理方法
 
-# 预下单
-if 'dictFreqGoodsNextOrder.pkl' in os.listdir('pickle'):
-    dictFreqGoodsNextOrder = pd.read_pickle('pickle\\dictFreqGoodsNextOrder.pkl')
-else:
-    dictFreqGoodsNextOrder = {}
-for freq in listFreq:
-    dictFreqGoodsNextOrder.setdefault(freq, {})
-    for goodsCode in dictGoodsName.keys():
-        dictFreqGoodsNextOrder[freq].setdefault(goodsCode, {})
-pd.to_pickle(dictFreqGoodsNextOrder, 'pickle\\dictFreqGoodsNextOrder.pkl')
+# 预下单， 基本用于平仓操作， 用于预下单操作
+dfInstrumentNextOrder = pd.DataFrame(columns=['合约号', '均值大小', '开始时间', '结束时间', '事件'])
+
+
+
 
 
 

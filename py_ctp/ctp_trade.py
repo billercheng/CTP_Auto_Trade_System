@@ -371,8 +371,6 @@ class Trade:
         pReqAuthenticateField.UserID = bytes(UserID, encoding='ascii')
         pReqAuthenticateField.UserProductInfo = bytes(UserProductInfo, encoding='ascii')
         pReqAuthenticateField.AuthCode = bytes(AuthCode, encoding='ascii')
-        print('the thing thing')
-        print(pReqAuthenticateField.AuthCode)
         pReqAuthenticateField.AppID = bytes(AppID, encoding='ascii')
         self.nRequestID += 1
         self.h.ReqAuthenticate(self.api, byref(pReqAuthenticateField), self.nRequestID)

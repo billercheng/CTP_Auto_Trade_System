@@ -44,10 +44,12 @@ class MdApi:
         if error.getErrorID() == 0:
             downLogProgram('行情服务器登陆成功，订阅主力合约')
             for instrument in listInstrument:
-                self.q.SubscribeMarketData(instrument)
+                goodsCode = getGoodsCode(instrument)
+                if goodsCode in setTheGoodsCode:  # 如果在交易的品种上，则可以订阅该合约
+                    self.q.SubscribeMarketData(instrument)
         else:
             log = '行情服务器登陆回报，错误代码：' + str(error.getErrorID()) + \
-                  ',   错误信息：' + str(error.getErrorMsg())
+                  ', 错误信息：' + str(error.getErrorMsg())
             downLogProgram(log)
 
     def onRspUserLogout(self, data, error, n, last):
@@ -75,4 +77,6 @@ class MdApi:
         event.dict_['TradingDay'] = data.getTradingDay()
         event.dict_['UpdateTime'] = data.getUpdateTime()
         event.dict_['UpdateMillisec'] = data.getUpdateMillisec()
+        event.dict_['AskPrice1'] = data.getAskPrice1()
+        event.dict_['BidPrice1'] = data.getBidPrice1()
         ee.put(event)
