@@ -1,14 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="BookmarkManager">
-    <bookmark url="file://$PROJECT_DIR$/boot.py" line="501" mnemonic="2" />
-    <bookmark url="file://$PROJECT_DIR$/boot.py" line="532" mnemonic="6" />
+    <bookmark url="file://$PROJECT_DIR$/boot.py" line="503" mnemonic="2" />
+    <bookmark url="file://$PROJECT_DIR$/boot.py" line="959" mnemonic="5" />
+    <bookmark url="file://$PROJECT_DIR$/onBar.py" line="498" mnemonic="1" />
   </component>
   <component name="ChangeListManager">
     <list default="true" id="22d08131-d2e5-448d-b630-0b478274f84d" name="Default Changelist" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/boot.py" beforeDir="false" afterPath="$PROJECT_DIR$/boot.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/onBar.py" beforeDir="false" afterPath="$PROJECT_DIR$/onBar.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/parameter.py" beforeDir="false" afterPath="$PROJECT_DIR$/parameter.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tdApi.py" beforeDir="false" afterPath="$PROJECT_DIR$/tdApi.py" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -20,87 +23,83 @@
     <session id="71556390">
       <usages-collector id="statistics.lifecycle.project">
         <counts>
-          <entry key="project.closed" value="2" />
-          <entry key="project.open.time.0" value="3" />
+          <entry key="project.closed" value="5" />
+          <entry key="project.open.time.0" value="6" />
           <entry key="project.open.time.1" value="1" />
-          <entry key="project.open.time.11" value="1" />
-          <entry key="project.open.time.2" value="5" />
+          <entry key="project.open.time.10" value="1" />
+          <entry key="project.open.time.11" value="2" />
+          <entry key="project.open.time.2" value="6" />
           <entry key="project.open.time.3" value="4" />
-          <entry key="project.open.time.4" value="5" />
+          <entry key="project.open.time.33" value="1" />
+          <entry key="project.open.time.4" value="8" />
           <entry key="project.open.time.5" value="5" />
           <entry key="project.open.time.6" value="4" />
           <entry key="project.open.time.7" value="1" />
           <entry key="project.open.time.8" value="2" />
-          <entry key="project.opened" value="31" />
+          <entry key="project.opened" value="41" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.extensions.open">
         <counts>
-          <entry key="py" value="35" />
-          <entry key="txt" value="17" />
+          <entry key="py" value="41" />
+          <entry key="txt" value="18" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.types.open">
         <counts>
-          <entry key="PLAIN_TEXT" value="17" />
-          <entry key="Python" value="35" />
+          <entry key="PLAIN_TEXT" value="18" />
+          <entry key="Python" value="41" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.extensions.edit">
         <counts>
-          <entry key="Python Console" value="122" />
-          <entry key="py" value="6470" />
+          <entry key="Python Console" value="341" />
+          <entry key="py" value="7511" />
           <entry key="txt" value="53" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.types.edit">
         <counts>
           <entry key="PLAIN_TEXT" value="53" />
-          <entry key="Python" value="6592" />
+          <entry key="Python" value="7852" />
         </counts>
       </usages-collector>
     </session>
   </component>
   <component name="FileEditorManager">
     <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
-      <file pinned="false" current-in-tab="false">
+      <file pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/boot.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="2222">
-              <caret line="552" column="48" lean-forward="true" selection-start-line="552" selection-start-column="48" selection-end-line="552" selection-end-column="48" />
+            <state relative-caret-position="635">
+              <caret line="540" column="67" lean-forward="true" selection-start-line="540" selection-start-column="67" selection-end-line="540" selection-end-column="67" />
               <folding>
                 <element signature="e#0#13#0" expanded="true" />
-                <element signature="e#14440#16450#0" />
-                <element signature="e#16493#18435#0" />
-                <element signature="e#19105#21115#0" />
-                <element signature="e#21158#23099#0" />
-                <element signature="e#29118#29452#0" />
-                <element signature="e#29580#31033#0" />
-                <element signature="e#30752#30872#0" />
-                <element signature="e#30915#31033#0" />
-                <element signature="e#31157#35045#0" />
-                <marker date="1573803825815" expanded="true" signature="192:58792" ph="..." />
-                <marker date="1573803825815" expanded="true" signature="3162:3171" ph="..." />
-                <marker date="1573803825815" expanded="true" signature="4511:6326" ph="..." />
+                <marker date="1574671222036" expanded="true" signature="192:65212" ph="..." />
+                <marker date="1574671222036" expanded="true" signature="3204:3213" ph="..." />
+                <marker date="1574671222036" expanded="true" signature="4553:6368" ph="..." />
               </folding>
             </state>
           </provider>
         </entry>
       </file>
       <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/mdApi.py">
+        <entry file="file://$PROJECT_DIR$/tdApi.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="526">
-              <caret line="80" column="54" selection-start-line="80" selection-start-column="54" selection-end-line="80" selection-end-column="54" />
+            <state relative-caret-position="2875">
+              <caret line="118" column="18" selection-start-line="118" selection-start-column="18" selection-end-line="118" selection-end-column="18" />
             </state>
           </provider>
         </entry>
       </file>
-      <file pinned="false" current-in-tab="true">
+      <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/onBar.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="390">
-              <caret line="929" column="29" lean-forward="true" selection-start-line="929" selection-start-column="29" selection-end-line="929" selection-end-column="29" />
+            <state relative-caret-position="389">
+              <caret line="616" column="49" selection-start-line="616" selection-start-column="49" selection-end-line="616" selection-end-column="49" />
+              <folding>
+                <element signature="e#0#23#0" expanded="true" />
+              </folding>
             </state>
           </provider>
         </entry>
@@ -108,11 +107,11 @@
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/parameter.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="215">
-              <caret line="480" selection-start-line="480" selection-end-line="480" />
+            <state relative-caret-position="10375">
+              <caret line="426" column="13" selection-start-line="426" selection-start-column="4" selection-end-line="426" selection-end-column="13" />
               <folding>
                 <element signature="e#0#22#0" expanded="true" />
-                <marker date="1573798518100" expanded="true" signature="2858:2892" ph="..." />
+                <marker date="1574297733756" expanded="true" signature="2858:2892" ph="..." />
               </folding>
             </state>
           </provider>
@@ -129,42 +128,38 @@
   </component>
   <component name="FindInProjectRecents">
     <findStrings>
-      <find>tradeDateTime</find>
-      <find>self.islogin</find>
-      <find>setTheGoodsCode</find>
-      <find>dealTickData</find>
-      <find>dfInstrumentNextOrder</find>
+      <find>listHolidayDate</find>
+      <find>Duovolume = 0</find>
+      <find>isChg</find>
+      <find>EVENT_SHOWCOMMAND</find>
+      <find>flushPosition</find>
+      <find>judgeExecTimer</find>
+      <find>islogin</find>
+      <find>datetime.now()</find>
+      <find>s['goods_code'] = goodsInstrument</find>
+      <find>'isChg'</find>
+      <find>return</find>
+      <find>self.loginTime</find>
+      <find>insertMarketData</find>
+      <find>EVENT_INSTRUMENT</find>
+      <find>dictFreqPositionTemp[freq]</find>
+      <find>撤单</find>
+      <find>mongoIndex</find>
+      <find>tempTime</find>
+      <find>dfCommand</find>
       <find>qtimer</find>
-      <find>goodsCode</find>
-      <find>getGoodsCode</find>
-      <find>checkInstrumentChg</find>
-      <find>with lockDfCommand:</find>
+      <find>self.checkInstrumentChg</find>
+      <find>register</find>
+      <find>print(freq)</find>
+      <find>dictGoodsInstrument</find>
+      <find>13, 32</find>
+      <find>仓位</find>
+      <find>CangweiKong</find>
+      <find>time</find>
+      <find>time(14, 59)</find>
       <find>print</find>
-      <find>ee.put</find>
-      <find>table</find>
-      <find>计算</find>
-      <find>downLogBarDeal</find>
-      <find>eachMvl</find>
-      <find>CurrentTradeTime</find>
-      <find>PreLastTimeNight</find>
-      <find>theLastTimeNon</find>
-      <find>PM</find>
-      <find>PresecondFinalNight</find>
-      <find>LastTradeDataTab</find>
-      <find>instrument</find>
-      <find>资金不</find>
-      <find>LongParList</find>
-      <find>changePriceLine</find>
-      <find>TradeKongOkStatus == 2 or TradeKongOkStatus == 4</find>
-      <find>TradeKongOkStatus</find>
-      <find>InBarCloseAtNMuxFlag</find>
-      <find>ParTab</find>
     </findStrings>
     <replaceStrings>
-      <replace>Error</replace>
-      <replace>错误记录</replace>
-      <replace>goodsCode</replace>
-      <replace>logTradeRecord</replace>
       <replace>down</replace>
       <replace>index</replace>
       <replace>selectWeekTradeTab</replace>
@@ -191,6 +186,10 @@
       <replace>mvl</replace>
       <replace>Afternoon</replace>
       <replace>thirdFinalNight</replace>
+      <replace>listHolidayDate</replace>
+      <replace>s['goods_code'] = instrument + '.'</replace>
+      <replace>dfFreqPosition</replace>
+      <replace>13, 37</replace>
     </replaceStrings>
   </component>
   <component name="Git.Settings">
@@ -202,20 +201,20 @@
         <option value="$PROJECT_DIR$/py_ctp/eventType.py" />
         <option value="$PROJECT_DIR$/bootTemp.py" />
         <option value="$PROJECT_DIR$/temp.py" />
-        <option value="$PROJECT_DIR$/tdApi.py" />
         <option value="$PROJECT_DIR$/RD files/LoginInformation.txt" />
         <option value="$PROJECT_DIR$/mdApi.py" />
         <option value="$PROJECT_DIR$/parameter.py" />
-        <option value="$PROJECT_DIR$/boot.py" />
+        <option value="$PROJECT_DIR$/tdApi.py" />
         <option value="$PROJECT_DIR$/onBar.py" />
+        <option value="$PROJECT_DIR$/boot.py" />
       </list>
     </option>
   </component>
-  <component name="ProjectFrameBounds" extendedState="6">
-    <option name="x" value="-12" />
-    <option name="y" value="-4" />
-    <option name="width" value="1069" />
-    <option name="height" value="1046" />
+  <component name="ProjectFrameBounds">
+    <option name="x" value="637" />
+    <option name="y" value="13" />
+    <option name="width" value="1282" />
+    <option name="height" value="1018" />
   </component>
   <component name="ProjectLevelVcsManager" settingsEditedManually="true">
     <ConfirmationsSetting value="2" id="Add" />
@@ -245,7 +244,7 @@
     </panes>
   </component>
   <component name="PropertiesComponent">
-    <property name="last_opened_file_path" value="$PROJECT_DIR$" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$/../CTP数据接收系统及数据管理（穿）mongo" />
     <property name="settings.editor.selected.configurable" value="terminal" />
   </component>
   <component name="RecentsManager">
@@ -391,7 +390,7 @@
     <frame x="-8" y="-8" width="1936" height="1056" extended-state="6" />
     <editor active="true" />
     <layout>
-      <window_info content_ui="combo" id="Project" order="0" sideWeight="0.60896444" visible="true" weight="0.08113804" />
+      <window_info content_ui="combo" id="Project" order="0" sideWeight="0.60896444" visible="true" weight="0.0890411" />
       <window_info id="Favorites" order="1" side_tool="true" />
       <window_info id="Structure" order="2" sideWeight="0.39103556" side_tool="true" weight="0.13277134" />
       <window_info anchor="bottom" id="Message" order="0" />
@@ -400,11 +399,11 @@
       <window_info anchor="bottom" id="Debug" order="3" weight="0.39933258" />
       <window_info anchor="bottom" id="Cvs" order="4" weight="0.25" />
       <window_info anchor="bottom" id="Inspection" order="5" weight="0.4" />
-      <window_info anchor="bottom" id="TODO" order="6" sideWeight="0.49947312" />
+      <window_info anchor="bottom" id="TODO" order="6" sideWeight="0.49947312" weight="0.1823461" />
       <window_info anchor="bottom" id="Version Control" order="7" show_stripe_button="false" />
       <window_info anchor="bottom" id="Terminal" order="8" sideWeight="0.4991103" weight="0.2505669" />
       <window_info anchor="bottom" id="Event Log" order="9" sideWeight="0.50088966" side_tool="true" weight="0.21784472" />
-      <window_info anchor="bottom" id="Python Console" order="10" weight="0.3909416" />
+      <window_info active="true" anchor="bottom" id="Python Console" order="10" visible="true" weight="0.12569521" />
       <window_info anchor="right" id="Commander" order="0" weight="0.4" />
       <window_info anchor="right" id="Ant Build" order="1" weight="0.25" />
       <window_info anchor="right" content_ui="combo" id="Hierarchy" order="2" weight="0.25" />
@@ -461,16 +460,6 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="50">
           <caret line="50" column="18" selection-start-line="50" selection-start-column="18" selection-end-line="50" selection-end-column="18" />
-          <folding>
-            <element signature="e#0#34#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/tdApi.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="942">
-          <caret line="310" column="59" selection-start-line="310" selection-start-column="59" selection-end-line="310" selection-end-column="59" />
         </state>
       </provider>
     </entry>
@@ -478,13 +467,6 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="499">
           <caret line="95" column="21" selection-start-line="95" selection-start-column="13" selection-end-line="95" selection-end-column="21" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/RD files/LoginInformation.txt">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="275">
-          <caret line="11" column="19" lean-forward="true" selection-start-line="11" selection-start-column="19" selection-end-line="11" selection-end-column="19" />
         </state>
       </provider>
     </entry>
@@ -502,50 +484,72 @@
         </state>
       </provider>
     </entry>
+    <entry file="file://$PROJECT_DIR$/RD files/LoginInformation.txt">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="275">
+          <caret line="11" column="19" lean-forward="true" selection-start-line="11" selection-start-column="19" selection-end-line="11" selection-end-column="19" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/py_ctp/enums.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="475">
+          <caret line="19" column="12" lean-forward="true" selection-start-line="19" selection-start-column="12" selection-end-line="19" selection-end-column="12" />
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/mdApi.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="526">
+        <state relative-caret-position="796">
           <caret line="80" column="54" selection-start-line="80" selection-start-column="54" selection-end-line="80" selection-end-column="54" />
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/boot.py">
+    <entry file="file://$PROJECT_DIR$/py_ctp/ctp_trade.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="2222">
-          <caret line="552" column="48" lean-forward="true" selection-start-line="552" selection-start-column="48" selection-end-line="552" selection-end-column="48" />
-          <folding>
-            <element signature="e#0#13#0" expanded="true" />
-            <element signature="e#14440#16450#0" />
-            <element signature="e#16493#18435#0" />
-            <element signature="e#19105#21115#0" />
-            <element signature="e#21158#23099#0" />
-            <element signature="e#29118#29452#0" />
-            <element signature="e#29580#31033#0" />
-            <element signature="e#30752#30872#0" />
-            <element signature="e#30915#31033#0" />
-            <element signature="e#31157#35045#0" />
-            <marker date="1573803825815" expanded="true" signature="192:58792" ph="..." />
-            <marker date="1573803825815" expanded="true" signature="3162:3171" ph="..." />
-            <marker date="1573803825815" expanded="true" signature="4511:6326" ph="..." />
-          </folding>
+        <state relative-caret-position="235">
+          <caret line="980" column="8" selection-start-line="980" selection-start-column="8" selection-end-line="980" selection-end-column="8" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/tdApi.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="2875">
+          <caret line="118" column="18" selection-start-line="118" selection-start-column="18" selection-end-line="118" selection-end-column="18" />
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/parameter.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="215">
-          <caret line="480" selection-start-line="480" selection-end-line="480" />
+        <state relative-caret-position="10375">
+          <caret line="426" column="13" selection-start-line="426" selection-start-column="4" selection-end-line="426" selection-end-column="13" />
           <folding>
             <element signature="e#0#22#0" expanded="true" />
-            <marker date="1573798518100" expanded="true" signature="2858:2892" ph="..." />
+            <marker date="1574297733756" expanded="true" signature="2858:2892" ph="..." />
           </folding>
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/onBar.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="390">
-          <caret line="929" column="29" lean-forward="true" selection-start-line="929" selection-start-column="29" selection-end-line="929" selection-end-column="29" />
+        <state relative-caret-position="389">
+          <caret line="616" column="49" selection-start-line="616" selection-start-column="49" selection-end-line="616" selection-end-column="49" />
+          <folding>
+            <element signature="e#0#23#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/boot.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="635">
+          <caret line="540" column="67" lean-forward="true" selection-start-line="540" selection-start-column="67" selection-end-line="540" selection-end-column="67" />
+          <folding>
+            <element signature="e#0#13#0" expanded="true" />
+            <marker date="1574671222036" expanded="true" signature="192:65212" ph="..." />
+            <marker date="1574671222036" expanded="true" signature="3204:3213" ph="..." />
+            <marker date="1574671222036" expanded="true" signature="4553:6368" ph="..." />
+          </folding>
         </state>
       </provider>
     </entry>

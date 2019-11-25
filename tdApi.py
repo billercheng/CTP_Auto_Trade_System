@@ -107,12 +107,16 @@ class TdApi:
 
     def onRtnOrder(self, data):
         # 常规报单事件
+        if time(7) <= datetime.now().time() <= time(8, 15):  # # 判断 连接 断开 与 连接 重连 的问题
+            return
         event = Event(type_=EVENT_ORDER)
         event.dict_ = data.__dict__.copy()
         ee.put(event)
 
     def onRtnTrade(self, data):
         """成交回报"""
+        if time(7) <= datetime.now().time() <= time(8, 15):
+            return
         event = Event(type_=EVENT_TRADE)
         event.dict_ = data.__dict__.copy()
         ee.put(event)
@@ -126,6 +130,8 @@ class TdApi:
 
     def onErrRtnOrderInsert(self, data, error):
         """发单错误回报（交易所）"""
+        if time(7) <= datetime.now().time() <= time(8, 15):
+            return
         event = Event(type_=EVENT_ORDER_ERROR)
         event.dict_['OrderRef'] = data.getOrderRef()
         event.dict_['InstrumentID'] = data.getInstrumentID()

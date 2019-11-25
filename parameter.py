@@ -102,7 +102,7 @@ def getLoseData(goodsCode, freq, startTime, endTime):  # 得到理论上，我�
                                         & (seriesTradeDay <= pd.to_datetime(theEndtime))].tolist()
     listTradeTime = []
     for eachDay in seriesTradeDay:
-        if eachDay not in listHolidayDatetime:
+        if eachDay.date() not in listHolidayDate:
             listTradeTime.extend(list(map(lambda x:eachDay + timedelta(days = 1 if x.hour in [0, 1, 2] else 0, hours=x.hour, minutes=x.minute), dictFreqGoodsCloseNight[freq][goodsCode])))
         else:
             listTradeTime.extend(list(map(lambda x:eachDay + timedelta(days = 1 if x.hour in [0, 1, 2] else 0, hours=x.hour, minutes=x.minute),
@@ -167,6 +167,19 @@ def judgeInTradeTime(goodsCode):  # 判断当前时间是否在 goodsCode 的交
             return True
     else:
         return False
+
+def judgeInTradeTimeTotal():  # 判断现在是否在交易时间内
+    now = datetime.now()
+    if (now - timedelta(hours=3)).date() in tradeDate.tolist():
+        now += timedelta(minutes=1)
+        nowTime = time(now.hour, now.minute)
+        if time(2, 30) < nowTime < time(9) or time(11, 30) < nowTime < time(13) or time(15, 15) < nowTime < time(21):
+            return False
+        else:
+            return True
+    else:
+        return False
+
 # endregion
 
 # 更改本地时间
@@ -298,7 +311,7 @@ if dateMark in []:
 # 交易日
 dfDatetime = pd.read_csv('RD files\\tradeDay.csv', parse_dates=['tradeDatetime'])
 tradeDatetime = dfDatetime['tradeDatetime']
-listHolidayDatetime = dfDatetime[dfDatetime['holiday'] == 1]['tradeDatetime'].dt.date.tolist()
+listHolidayDate = dfDatetime[dfDatetime['holiday'] == 1]['tradeDatetime'].dt.date.tolist()
 tradeDate = tradeDatetime.dt.date
 now = datetime.now()
 s = dfDatetime['tradeDatetime'].copy()
@@ -411,7 +424,10 @@ listWeekTradeTab = ['交易时间', '品种名称', '交易合约号', '周次',
 listCommand = ['发单时间', "本地下单码", '合约号', '持有多手数', '持有空手数',
                '应开多手数', '应开空手数', '多开仓线', '多止损线', '多止盈线',
                '空开仓线', '空止盈线', '空止损线']  # 指令单的列
-dfCommand = pd.read_pickle('pickle\\dfCommand.pkl')
+if 'dfCommand.pkl' in os.listdir('pickle'):
+    dfCommand = pd.read_pickle('pickle\\dfCommand.pkl')
+else:
+    dfCommand = pd.DataFrame(columns=listCommand)
 dfCommandDrop = dfCommand[0:0].copy()
 dfCommand = dfCommand.reset_index(drop=True)
 for num in range(dfCommand.shape[0]):
@@ -474,8 +490,8 @@ for mvl in mvlenvector:
          '重叠度高收益_{}'.format(mvl), '重叠度低收益_{}'.format(mvl), '重叠度收收益_{}'.format(mvl)])
 MaxLossPerCTA = 0.001  # 最大回撤阈值
 StdMuxMinValue = 1  # 开平仓线时，开仓倍数的比较值
-StopAbtainInBarMux = 2
-StopLossInBarMux = 2
+StopAbtainInBarMux = 4  # bar 内止盈的话，使用 StopAbtainInBarMux 倍方差
+StopLossInBarMux = 1.1  # bar 内止损的话，使用 StopLossInBarMux 倍方差
 InBarCloseAtNMuxFlag = "1"
 InBarStopLossFlag = "1"
 PricUnreachableHighPrice = 999999  # 下单时，保证价格无效的最大价格
