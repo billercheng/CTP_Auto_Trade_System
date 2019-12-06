@@ -44,8 +44,11 @@ class TdApi:
         downLogProgram('交易服务器连接断开')
 
     def onRspAuthenticate(self, pRspAuthenticateField: CThostFtdcRspAuthenticateField, pRspInfo: CThostFtdcRspInfoField, nRequestID: int, bIsLast: bool):
-        # downLogProgram('auth：{0}:{1}'.format(pRspInfo.getErrorID(), pRspInfo.getErrorMsg()))
-        self.t.ReqUserLogin(BrokerID=self.brokerid, UserID=self.userid, Password=self.password, UserProductInfo=self.product_info)
+        downLogProgram('auth：{0}:{1}'.format(pRspInfo.getErrorID(), pRspInfo.getErrorMsg()))
+        if pRspInfo.getErrorMsg() == '正确' or pRspInfo.getErrorMsg() == 'CTP:认证码错误，尽快获取正确的认证码。当前系统或者用户豁免终端认证，可以登录':
+            self.t.ReqUserLogin(BrokerID=self.brokerid, UserID=self.userid, Password=self.password, UserProductInfo=self.product_info)
+        elif pRspInfo.getErrorMsg() == 'CTP:前置不活跃':
+            threading.Timer(60, self.t.ReqAuthenticate, [self.brokerid, self.userid, self.product_info, self.auth_code, self.app_id]).start()
 
     def onRspUserLogin(self, data, error, n, last):
         """登陆回报"""
@@ -56,10 +59,13 @@ class TdApi:
             self.islogin = True
             self.t.ReqSettlementInfoConfirm(self.BrokerID, self.Investor)  # 对账单确认
             self.t.ReqQryDepthMarketData()
+            downLogProgram(log)
         else:
             log = '交易服务器登陆回报，错误代码：' + str(error.getErrorID()) + \
                   ',   错误信息：' + str(error.getErrorMsg())
-        downLogProgram(log)
+            downLogProgram(log)
+            if error.getErrorMsg() == 'CTP:客户端未认证':  # 过 60 秒后，重新登陆一次
+                threading.Timer(60, self.t.ReqUserLogin, ['', self.brokerid, self.userid, self.password, self.product_info]).start()
 
     def onRspUserLogout(self, data, error, n, last):
         if error.getErrorID() == 0:
@@ -132,7 +138,7 @@ class TdApi:
         """发单错误回报（交易所）"""
         if time(7) <= datetime.now().time() <= time(8, 15):
             return
-        event = Event(type_=EVENT_ORDER_ERROR)
+        event = Event(type_=EVENT_ERROR)
         event.dict_['OrderRef'] = data.getOrderRef()
         event.dict_['InstrumentID'] = data.getInstrumentID()
         event.dict_['Direction'] = data.getDirection()
@@ -143,7 +149,7 @@ class TdApi:
         ee.put(event)
 
     # region 下单操作
-    def sendorder(self, instrumentid, orderref, price, vol, direction, offset,
+    def sendorder(self, instrumentid, orderRef, price, vol, direction, offset,
                   OrderPriceType=TThostFtdcOrderPriceTypeType.THOST_FTDC_OPT_LimitPrice):
         goodsCode = getGoodsCode(instrumentid)
         if goodsCode.split('.')[1] == 'SHF':
@@ -159,7 +165,7 @@ class TdApi:
         self.t.ReqOrderInsert(BrokerID=self.brokerid,
                               InvestorID=self.userid,
                               InstrumentID=instrumentid,
-                              OrderRef=orderref,
+                              OrderRef=orderRef,
                               UserID=self.userid,
                               OrderPriceType=OrderPriceType,
                               Direction=direction,
@@ -174,57 +180,57 @@ class TdApi:
                               ContingentCondition=TThostFtdcContingentConditionType.THOST_FTDC_CC_Immediately,
                               ExchangeID=exChangeID
                               )
-        return orderref
+        return orderRef
 
-    def buy(self, symbol, orderref, price, vol):  # 买开
+    def buy(self, symbol, orderRef, price, vol):  # 买开
         direction = TThostFtdcDirectionType.THOST_FTDC_D_Buy
         offset = chr(TThostFtdcOffsetFlagType.THOST_FTDC_OF_Open.value)
-        self.sendorder(symbol, orderref, price, vol, direction, offset)
+        self.sendorder(symbol, orderRef, price, vol, direction, offset)
 
-    def sell(self, symbol, orderref, price, vol):  # 买平
+    def sell(self, symbol, orderRef, price, vol):  # 买平
         direction = TThostFtdcDirectionType.THOST_FTDC_D_Sell
         offset = chr(TThostFtdcOffsetFlagType.THOST_FTDC_OF_Close.value)
-        self.sendorder(symbol, orderref, price, vol, direction, offset)
+        self.sendorder(symbol, orderRef, price, vol, direction, offset)
 
-    def sellMarket(self, symbol, orderref, vol):  # 买平市
+    def sellMarket(self, symbol, orderRef, vol):  # 买平市
         direction = TThostFtdcDirectionType.THOST_FTDC_D_Sell
         offset = chr(TThostFtdcOffsetFlagType.THOST_FTDC_OF_Close.value)
-        self.sendorder(symbol, orderref, 0, vol, direction, offset, TThostFtdcOrderPriceTypeType.THOST_FTDC_OPT_AnyPrice)
+        self.sendorder(symbol, orderRef, 0, vol, direction, offset, TThostFtdcOrderPriceTypeType.THOST_FTDC_OPT_AnyPrice)
 
-    def sellToday(self, symbol, orderref, price, vol):  # 买平今
+    def sellToday(self, symbol, orderRef, price, vol):  # 买平今
         direction = TThostFtdcDirectionType.THOST_FTDC_D_Sell
         offset = chr(TThostFtdcOffsetFlagType.THOST_FTDC_OF_CloseToday.value)
-        self.sendorder(symbol, orderref, price, vol, direction, offset)
+        self.sendorder(symbol, orderRef, price, vol, direction, offset)
 
-    def sellMarketToday(self, symbol, orderref, vol):  # 买平市
+    def sellMarketToday(self, symbol, orderRef, vol):  # 买平市
         direction = TThostFtdcDirectionType.THOST_FTDC_D_Sell
         offset = chr(TThostFtdcOffsetFlagType.THOST_FTDC_OF_CloseToday.value)
-        self.sendorder(symbol, orderref, 0, vol, direction, offset, TThostFtdcOrderPriceTypeType.THOST_FTDC_OPT_AnyPrice)
+        self.sendorder(symbol, orderRef, 0, vol, direction, offset, TThostFtdcOrderPriceTypeType.THOST_FTDC_OPT_AnyPrice)
 
-    def short(self, symbol, orderref, price, vol):  # 卖开
+    def short(self, symbol, orderRef, price, vol):  # 卖开
         direction = TThostFtdcDirectionType.THOST_FTDC_D_Sell
         offset = chr(TThostFtdcOffsetFlagType.THOST_FTDC_OF_Open.value)
-        self.sendorder(symbol, orderref, price, vol, direction, offset)
+        self.sendorder(symbol, orderRef, price, vol, direction, offset)
 
-    def cover(self, symbol, orderref, price, vol):  # 卖平
+    def cover(self, symbol, orderRef, price, vol):  # 卖平
         direction = TThostFtdcDirectionType.THOST_FTDC_D_Buy
         offset = chr(TThostFtdcOffsetFlagType.THOST_FTDC_OF_Close.value)
-        self.sendorder(symbol, orderref, price, vol, direction, offset)
+        self.sendorder(symbol, orderRef, price, vol, direction, offset)
 
-    def coverMarket(self, symbol, orderref, vol):  # 卖平市
+    def coverMarket(self, symbol, orderRef, vol):  # 卖平市
         direction = TThostFtdcDirectionType.THOST_FTDC_D_Buy
         offset = chr(TThostFtdcOffsetFlagType.THOST_FTDC_OF_Close.value)
-        self.sendorder(symbol, orderref, 0, vol, direction, offset, TThostFtdcOrderPriceTypeType.THOST_FTDC_OPT_AnyPrice)
+        self.sendorder(symbol, orderRef, 0, vol, direction, offset, TThostFtdcOrderPriceTypeType.THOST_FTDC_OPT_AnyPrice)
 
-    def coverToday(self, symbol, orderref, price, vol):  # 卖平今
+    def coverToday(self, symbol, orderRef, price, vol):  # 卖平今
         direction = TThostFtdcDirectionType.THOST_FTDC_D_Buy
         offset = chr(TThostFtdcOffsetFlagType.THOST_FTDC_OF_CloseToday.value)
-        self.sendorder(symbol, orderref, price, vol, direction, offset)
+        self.sendorder(symbol, orderRef, price, vol, direction, offset)
 
-    def coverMarketToday(self, symbol, orderref, vol):  # 卖平市
+    def coverMarketToday(self, symbol, orderRef, vol):  # 卖平市
         direction = TThostFtdcDirectionType.THOST_FTDC_D_Buy
         offset = chr(TThostFtdcOffsetFlagType.THOST_FTDC_OF_CloseToday.value)
-        self.sendorder(symbol, orderref, 0, vol, direction, offset, TThostFtdcOrderPriceTypeType.THOST_FTDC_OPT_AnyPrice)
+        self.sendorder(symbol, orderRef, 0, vol, direction, offset, TThostFtdcOrderPriceTypeType.THOST_FTDC_OPT_AnyPrice)
 
     def cancelOrder(self, order):
         """撤单"""
@@ -241,7 +247,7 @@ class TdApi:
     # endregion
 
     # region 预埋单
-    def sendorderPark(self, instrumentid, orderref, price, vol, direction, offset,
+    def sendorderPark(self, instrumentid, orderRef, price, vol, direction, offset,
                       OrderPriceType=TThostFtdcOrderPriceTypeType.THOST_FTDC_OPT_LimitPrice):
         goodsCode = getGoodsCode(instrumentid)
         if goodsCode.split('.')[1] == 'SHF':
@@ -257,7 +263,7 @@ class TdApi:
         self.t.ReqParkedOrderInsert(BrokerID=self.brokerid,
                                     InvestorID=self.userid,
                                     InstrumentID=instrumentid,
-                                    OrderRef=orderref,
+                                    OrderRef=orderRef,
                                     UserID=self.userid,
                                     OrderPriceType=OrderPriceType,
                                     Direction=direction,
@@ -271,47 +277,47 @@ class TdApi:
                                     ForceCloseReason=TThostFtdcForceCloseReasonType.THOST_FTDC_FCC_NotForceClose,
                                     ContingentCondition=TThostFtdcContingentConditionType.THOST_FTDC_CC_Immediately,
                                     ExchangeID=exChangeID)
-        return orderref
+        return orderRef
 
-    def buyPark(self, symbol, orderref, price, vol):  # 多开
+    def buyPark(self, symbol, orderRef, price, vol):  # 多开
         direction = TThostFtdcDirectionType.THOST_FTDC_D_Buy
         offset = chr(TThostFtdcOffsetFlagType.THOST_FTDC_OF_Open.value)
-        self.sendorderPark(symbol, orderref, price, vol, direction, offset)
+        self.sendorderPark(symbol, orderRef, price, vol, direction, offset)
 
-    def sellPark(self, symbol, orderref, price, vol):  # 多平
+    def sellPark(self, symbol, orderRef, price, vol):  # 多平
         direction = TThostFtdcDirectionType.THOST_FTDC_D_Sell
         offset = chr(TThostFtdcOffsetFlagType.THOST_FTDC_OF_Close.value)
-        self.sendorderPark(symbol, orderref, price, vol, direction, offset)
+        self.sendorderPark(symbol, orderRef, price, vol, direction, offset)
 
-    def sellMarketPark(self, symbol, orderref, vol):  # 多平
+    def sellMarketPark(self, symbol, orderRef, vol):  # 多平
         direction = TThostFtdcDirectionType.THOST_FTDC_D_Sell
         offset = chr(TThostFtdcOffsetFlagType.THOST_FTDC_OF_Close.value)
-        self.sendorderPark(symbol, orderref, 0, vol, direction, offset, TThostFtdcOrderPriceTypeType.THOST_FTDC_OPT_AnyPrice)
+        self.sendorderPark(symbol, orderRef, 0, vol, direction, offset, TThostFtdcOrderPriceTypeType.THOST_FTDC_OPT_AnyPrice)
 
-    def selltodayPark(self, symbol, orderref, price, vol):  # 平今多
+    def selltodayPark(self, symbol, orderRef, price, vol):  # 平今多
         direction = TThostFtdcDirectionType.THOST_FTDC_D_Sell
         offset = chr(TThostFtdcOffsetFlagType.THOST_FTDC_OF_CloseToday.value)
-        self.sendorderPark(symbol, orderref, price, vol, direction, offset)
+        self.sendorderPark(symbol, orderRef, price, vol, direction, offset)
 
-    def shortPark(self, symbol, orderref, price, vol):  # 卖开空开
+    def shortPark(self, symbol, orderRef, price, vol):  # 卖开空开
         direction = TThostFtdcDirectionType.THOST_FTDC_D_Sell
         offset = chr(TThostFtdcOffsetFlagType.THOST_FTDC_OF_Open.value)
-        self.sendorderPark(symbol, orderref, price, vol, direction, offset)
+        self.sendorderPark(symbol, orderRef, price, vol, direction, offset)
 
-    def coverPark(self, symbol, orderref, price, vol):  # 空平
+    def coverPark(self, symbol, orderRef, price, vol):  # 空平
         direction = TThostFtdcDirectionType.THOST_FTDC_D_Buy
         offset = chr(TThostFtdcOffsetFlagType.THOST_FTDC_OF_Close.value)
-        self.sendorderPark(symbol, orderref, price, vol, direction, offset)
+        self.sendorderPark(symbol, orderRef, price, vol, direction, offset)
 
-    def coverMarketPark(self, symbol, orderref, vol):  # 空平
+    def coverMarketPark(self, symbol, orderRef, vol):  # 空平
         direction = TThostFtdcDirectionType.THOST_FTDC_D_Buy
         offset = chr(TThostFtdcOffsetFlagType.THOST_FTDC_OF_Close.value)
-        self.sendorderPark(symbol, orderref, 0, vol, direction, offset, TThostFtdcOrderPriceTypeType.THOST_FTDC_OPT_AnyPrice)
+        self.sendorderPark(symbol, orderRef, 0, vol, direction, offset, TThostFtdcOrderPriceTypeType.THOST_FTDC_OPT_AnyPrice)
 
-    def covertodayPark(self, symbol, orderref, price, vol):  # 平今空
+    def covertodayPark(self, symbol, orderRef, price, vol):  # 平今空
         direction = TThostFtdcDirectionType.THOST_FTDC_D_Buy
         offset = chr(TThostFtdcOffsetFlagType.THOST_FTDC_OF_CloseToday.value)
-        self.sendorderPark(symbol, orderref, price, vol, direction, offset)
+        self.sendorderPark(symbol, orderRef, price, vol, direction, offset)
 
     def cancelOrderPark(self, order):  # 预撤单
         self.t.ReqParkedOrderAction(BrokerID=self.brokerid,

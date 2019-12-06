@@ -12,24 +12,27 @@ class RdMd():
     def __init__(self):
         # 检测是否登陆
         self.loginTime = None
+        # 判断是否允许执行周交易明细表
+        self.isExecRefresh = True
         # 关于建立 socket 通信时使用的变量
-        self.queueRecv = queue.PriorityQueue()
+        self.queueRecv = queue.PriorityQueue()  # 建立优先队列
         self.strRecv = ""
         # 事件处理方法
         self.registerEngine()
         # 读取数据到内存
-        threading.Thread(target=self.getData, daemon=True).start()
+        threading.Thread(target=self.getData, daemon=True).start()  # 将数据库数据写入内存上
         # qtimer 检测自动下止盈单
         self.timer0 = QTimer()
-        self.timer0.timeout.connect(self.flushPosition)  # 确保所有持仓都挂止盈单
-        self.timer0.start(7000)
+        self.timer0.timeout.connect(self.flushStopProfit)  # 确保所有持仓都挂止盈单
+        self.timer0.start(5000)
         # qtimer 检测持仓的情况
         self.timer1 = QTimer()
-        self.timer1.timeout.connect(self.showPosition)  # 确保显示所有的持仓信息
+        self.timer1.timeout.connect(self.flushShowPostion)  # 确保显示所有的持仓信息
         self.timer1.start(30000)
     
     def getData(self):
         downLogProgram("读取 mongodb 数据库数据，并写入内存上")
+        self.getZhuli()  # 获取所有品种的主力合约
         for freq in listFreqPlus:
             dictData[freq] = {}
             downLogProgram("将频段 {} 数据库数据写入内存".format(freq))
@@ -38,7 +41,7 @@ class RdMd():
                 if goodsCode in dictFreqUnGoodsCode[freq]:  # 如果没有交易的话，不需要读取
                     continue
                 goodsName = dictGoodsName[goodsCode]
-                num = len(dictFreqGoodsClose[freq][goodsCode]) * 5 + mvlenvector[-1] + 10
+                num = len(dictFreqGoodsClose[freq][goodsCode]) * 5 + mvLenVector[-1] + 10  # 最小容纳量为 本周的数据
                 dictData[freq][goodsName + '_调整表'] = readMongoNum(db, '{}_调整表'.format(goodsName), num).set_index('trade_time').sort_index()
                 dictData[freq][goodsName + '_调整表'] = dictData[freq][goodsName + '_调整表'][listMin]
                 if freq != 1:
@@ -53,12 +56,6 @@ class RdMd():
                     else:
                         dictData[freq][goodsName + '_周交易明细表'] = dictData[freq][goodsName + '_周交易明细表'][listWeekTradeTab].set_index('交易时间', drop=False)
                     getWeekTradeTab(goodsCode, freq)
-        self.getZhuli()  # 获取品种的调整时刻表
-        # 刷新周交易明细表
-        # 如果执行的程序不在交易时间内，不执行周交易明细表
-        now = datetime.now()
-        if (time(2, 30) < now.time() < time(8, 59)) or (time(11, 30) < now.time() < time(13, 30)) or (time(10, 15) < now.time() < time(10, 30)) or (time(15, 15) < now.time() < time(20, 59)) or now.date() not in tradeDate.tolist():
-            self.execWeekTradeTab()
         event = Event(EVENT_LOGIN)  # 登陆事件
         ee.put(event)
     
@@ -90,11 +87,11 @@ class RdMd():
         downLogProgram("正在刷新周交易明细表")
         for freq in listFreq:
             for goodsCode in dictGoodsName.keys():
-                if goodsCode in dictFreqUnGoodsCode[freq]:
+                if goodsCode in dictFreqUnGoodsCode[freq]:  # 如果 该品种 不是 进行交易的 品种，则不需要刷新周交易明细表
                     continue
                 goodsName = dictGoodsName[goodsCode]
-                dictData[freq][goodsName + '_周交易明细表'] = dictData[freq][goodsName + '_周交易明细表'][0:0].copy()
-                table = dictFreqDb[freq]['{}_周交易明细表'.format(goodsName)]  # 删除周交易明细表
+                dictData[freq][goodsName + '_周交易明细表'] = dictData[freq][goodsName + '_周交易明细表'][0:0].copy()  # 将周交易明细表的表格数据删除
+                table = dictFreqDb[freq]['{}_周交易明细表'.format(goodsName)]  # 删除数据库的周交易明细表格
                 table.drop()
                 getWeekTradeTab(goodsCode, freq)
         self.execCommand()
@@ -106,7 +103,7 @@ class RdMd():
             d = {}
             d['isChg'] = True
             d['index'] = index
-            d['goods_code'] = dfCommand['合约号'][index] + '.'
+            d['goods_code'] = dfCommand['合约号'][index] + '.'  # 将指令转为无效指令
             event.dict_ = d
             ee.put(event)
         # 刷新指令
@@ -118,26 +115,29 @@ class RdMd():
                     indexGoods = listGoods.index(goodsCode)
                     indexBar = dictFreqGoodsClose[freq][goodsCode].index(tradeTime.time())
                     orderRef = theTradeDay.strftime('%Y%m%d') + '.' + str(freq) + '.' + str(indexGoods) + '.' + str(indexBar) + '.'
-                    preOrderRef = ""
-                    if ((datetime.now() - tradeTime) < timedelta(days=1, hours=1)) or (dictFreqGoodsCloseNight[freq][goodsCode][-1] == dictFreqGoodsCloseNight[1][goodsCode][-1]):
-                        getOrder(freq, goodsCode, orderRef, preOrderRef, False)
+                    if ((datetime.now() - tradeTime) < timedelta(days=1, hours=1)) or (dictFreqGoodsCloseNight[freq][goodsCode][-1] == dictFreqGoodsCloseNight[1][goodsCode][-1]):  # 每周的非完整 Bar ，不执行操作
+                        if tradeTime.time() in dictGoodsSend[goodsCode]:  # 判断是否需要预撤单操作， 如果 tradeTime.time() in dictGoodsSent 的话，需要进行预撤单操作
+                            preOrderRef = orderCancelGoodsCode(goodsCode, freq, tradeTime)  # 需要预撤单
+                        else:
+                            preOrderRef = ''  # 不需要预撤单
+                        getCommand(freq, goodsCode, orderRef, preOrderRef, False)
 
     # region 事件对应处理方法
     def registerEngine(self):
         ee.register(EVENT_ORDER, self.order)  # 委托单
         ee.register(EVENT_TRADE, self.trade)  # 成交单
-        ee.register(EVENT_ORDER_ERROR, self.error)  # 错误单
-        ee.register(EVENT_SHOWPOSITION, self.showPositionEvent)  # 重新显示持仓信息
+        ee.register(EVENT_ERROR, self.error)  # 错误单
+        ee.register(EVENT_POSITION, self.chgPosition)  # 重新显示持仓信息
         ee.register(EVENT_ORDERCOMMAND, self.orderCommand)  # 下单
         ee.register(EVENT_ORDERCANCEL, self.orderCancel)  # 撤单
         ee.register(EVENT_ORDERCANCELPARK, self.orderCancelPark)  # 预撤单
-        ee.register(EVENT_MARKETDATA_CONTRACT, self.dealTickData)  # 处理tick数据
+        ee.register(EVENT_TICK, self.dealTickData)  # 处理tick数据
         ee.register(EVENT_SHOWCOMMAND, self.showCommand)  # 指令单的更改操作
         ee.register(EVENT_LOGIN, self.login)  # 登陆
         self.checkInstrumentChg = True  # 切换主力合约的判断
         self.listInstrumentInformation = []  # 保存合约资料
-        ee.register(EVENT_INSTRUMENT, self.insertMarketData)  # 检测是否切换合约
-        ee.register(EVENT_MARKETORDER, self.marketOrder)  # 进行某频段某品种的市价平仓操作
+        ee.register(EVENT_INSTRUMENT, self.checkChgInstrument)  # 检测是否切换合约
+        ee.register(EVENT_ORDERMARKET, self.orderMarket)  # 进行某频段某品种的市价平仓操作
         ee.start()
 
     # 查询委托单状态
@@ -148,41 +148,31 @@ class RdMd():
             return
         else:
             tmp["本地下单码"] = dictOrderRef[var["OrderRef"]]
-        tmp["时间"] = pd.to_datetime(theTradeDay.strftime('%Y%m%d') + ' ' + var["InsertTime"])
+        tmp["时间"] = pd.to_datetime(theTradeDay.strftime('%Y%m%d') + ' ' + var["InsertTime"])  # 获取交易时间
         tmp["代码"] = var['InstrumentID']
-        varGoodsCode = getGoodsCode(var['InstrumentID'])
         freq = int(tmp["本地下单码"].split('.')[1])
         # 不在频段，return
         if freq not in listFreq:
             return
-        # 同一个orderRef 上，还需要相同的goodsCode才进行操作
-        codeGoodsCode = listGoods[int(tmp["本地下单码"].split('.')[2])]
-        if codeGoodsCode != varGoodsCode:
-            return
-        if var["Direction"] == TThostFtdcDirectionType.THOST_FTDC_D_Buy:
-            if var["CombOffsetFlag"] == '0':
+        tmp["价格"] = var["LimitPrice"]
+        if var["Direction"] == TThostFtdcDirectionType.THOST_FTDC_D_Buy:  # 多空方向
+            tmp["数量"] = var["VolumeTotalOriginal"]
+            if var["CombOffsetFlag"] == '0':  # 开平方向
                 tmp["方向"] = "买/开"
-                tmp["价格"] = var["LimitPrice"]
-                tmp["数量"] = var["VolumeTotalOriginal"]
             else:
                 tmp["方向"] = "买/平"
-                tmp["价格"] = var["LimitPrice"]
-                tmp["数量"] = var["VolumeTotalOriginal"]
         else:
+            tmp["数量"] = var["VolumeTotalOriginal"] * (-1)
             if var["CombOffsetFlag"] == '0':
                 tmp["方向"] = "卖/开"
-                tmp["价格"] = var["LimitPrice"]
-                tmp["数量"] = var["VolumeTotalOriginal"] * (-1)
             else:
                 tmp["方向"] = "卖/平"
-                tmp["价格"] = var["LimitPrice"]
-                tmp["数量"] = var["VolumeTotalOriginal"] * (-1)
         tmp["状态"] = var["StatusMsg"]
         tmp["已成交"] = var["VolumeTraded"]
-        tmp["成交均价"] = var["LimitPrice"]
-        tmp["拒绝原因"] = var["VolumeTraded"]
+        tmp["成交均价"] = var["LimitPrice"]  # 成交均价暂时不需要用到
+        tmp["拒绝原因"] = 0  # 拒绝原因暂时也不需要用到的
         # 记录：
-        downLogTradeRecord('order: ' + str(tmp))
+        downLogTradeRecord('order: ' + str(tmp), freq)
         if var["OrderRef"] not in dfOrderSource['OrderRef'].tolist():
             with lockDfOrder:
                 tmp['id'] = dfOrder.shape[0]
@@ -219,7 +209,7 @@ class RdMd():
             newDict = insertDbChg(newDict)
             table.update_one(mongoIndex, {"$set": newDict})
         if tmp["状态"] == '已撤单' \
-                and tmp["本地下单码"] in dictPreOrderRefOrder.keys():
+                and tmp["本地下单码"] in dictPreOrderRefOrder.keys():  # 因为有一些委托单条件限制为：先撤单，然后再开仓
             # 如果是最后一个的话，那么进行下单操作
             if var["OrderRef"] == dictRefOrder[tmp["本地下单码"]][-1]:
                 event = dictPreOrderRefOrder.pop(tmp["本地下单码"])
@@ -232,44 +222,32 @@ class RdMd():
         if var["OrderRef"] not in dictOrderRef.keys():
             return
         else:
-            var["OrderRef"] = dictOrderRef[var["OrderRef"]]
-            tmp["本地下单码"] = var["OrderRef"]
+            tmp["本地下单码"] = dictOrderRef[var["OrderRef"]]
         tmp["时间"] = pd.to_datetime(theTradeDay.strftime('%Y%m%d') + ' ' + var["TradeTime"])
         tmp["代码"] = var['InstrumentID']
-        if tmp["代码"][-4:].isdigit():
-            if tmp["代码"][:-4] not in dictGoodsChg.keys():
-                return
-        else:
-            if tmp["代码"][:-3] not in dictGoodsChg.keys():
-                return
         tradeTime = pd.to_datetime(tmp["时间"])
         goodsCode = getGoodsCode(var['InstrumentID'])
         tmp["名称"] = dictGoodsName[goodsCode]
         if var["Direction"] == TThostFtdcDirectionType.THOST_FTDC_D_Buy:
+            tmp["数量"] = var["Volume"]
             if var["OffsetFlag"] == TThostFtdcOffsetFlagType.THOST_FTDC_OF_Open:
                 tmp["方向"] = "买/开"
-                tmp["数量"] = var["Volume"]
             else:
                 tmp["方向"] = "买/平"
-                tmp["数量"] = var["Volume"]
         else:
+            tmp["数量"] = var["Volume"] * (-1)
             if var["OffsetFlag"] == TThostFtdcOffsetFlagType.THOST_FTDC_OF_Open:
                 tmp["方向"] = "卖/开"
-                tmp["数量"] = var["Volume"] * (-1)
             else:
                 tmp["方向"] = "卖/平"
-                tmp["数量"] = var["Volume"] * (-1)
         tmp["价格"] = var["Price"]
         tmp['持仓盈亏'] = 0
-        downLogTradeRecord('trade: ' + str(tmp))
         # 本地下单码 日期 5 位  频段 2 位  品种 2 位  第几个 bar 数据 2 位  开仓 还是 平仓 1 位
         freq = int(tmp["本地下单码"].split('.')[1])
         tmp['freq'] = freq
         if freq not in listFreq:
             return False
-        codeGoodsCode = listGoods[int(tmp["本地下单码"].split('.')[2])]
-        if codeGoodsCode != goodsCode:
-            return
+        downLogTradeRecord('trade: ' + str(tmp), freq)
         # 关于持仓的增加问题
         dfFreqTrade = dictFreqTrade[freq]
         table = dictFreqDb[freq]['频段成交']
@@ -296,165 +274,98 @@ class RdMd():
             pd.to_pickle(listTradeID, 'pickle\\listTradeID.pkl')
         else:
             return
-        # 对频段持仓进行处理
-        dfCommandTemp = dfCommand.copy()
-        if var["OffsetFlag"] == TThostFtdcOffsetFlagType.THOST_FTDC_OF_Open:
-            if tmp["代码"] not in dictFreqPosition[freq]['代码'].values:
-                event = Event(type_=EVENT_SHOWPOSITION)
-                event.dict_ = tmp.copy()
-                event.dict_['append'] = True
-                self.showPositionEvent(event)
-                # 进行下止盈单操作
-                orderRef = tmp["本地下单码"][:-1] + '2'
-                orderEvent = Event(type_=EVENT_ORDERCOMMAND)
-                orderEvent.dict_['InstrumentID'] = var['InstrumentID']
-                if var["Direction"] == TThostFtdcDirectionType.THOST_FTDC_D_Buy:
-                    orderEvent.dict_['Direction'] = TThostFtdcDirectionType.THOST_FTDC_D_Sell
-                    if not dfCommandTemp.loc[dfCommandTemp['本地下单码'] == tmp["本地下单码"]].empty:
-                        index = dfCommandTemp.index[dfCommandTemp['本地下单码'] == tmp["本地下单码"]][-1]
-                        s = dfCommandTemp.loc[index]
-                        profitLine = s['多止盈线']
-                        orderEvent.dict_['CombOffsetFlag'] = chr(TThostFtdcOffsetFlagType.THOST_FTDC_OF_Close.value)
-                        orderEvent.dict_['OrderPriceType'] = TThostFtdcOrderPriceTypeType.THOST_FTDC_OPT_LimitPrice
-                        orderEvent.dict_['LimitPrice'] = profitLine
-                        orderEvent.dict_['orderref'] = orderRef
-                        orderEvent.dict_['VolumeTotalOriginal'] = int(var["Volume"])
-                        self.orderCommand(orderEvent)
-                        # region 将止损指令写入到 指令单上
-                        if tmp["本地下单码"][:-1] + '0' not in dfCommand['本地下单码'].tolist():
-                            # 新写入止损单
-                            s["本地下单码"] = tmp["本地下单码"][:-1] + '0'
-                            s['应开多手数'] = 0
-                            s['应开空手数'] = 0
-                            s['合约号'] = s['合约号'].split('.')[0]
-                            s['持有多手数'] = int(var["Volume"])
-                            s['发单时间'] = pd.to_datetime(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-                            event = Event(type_=EVENT_SHOWCOMMAND)
-                            event.dict_ = s
-                            self.showCommand(event)
-                        else:
-                            # 能够直接执行是因为 dfCommand 是单线程操作，不会有两条线路操作
-                            index = dfCommand['本地下单码'].tolist().index(tmp["本地下单码"][:-1] + '0')
-                            with lockDfCommand:
-                                dfCommand.at[index, '持有多手数'] += int(var["Volume"])
-                                dfCommand.to_pickle('pickle\\dfCommand.pkl')
-                        # endregion
-                else:
-                    orderEvent.dict_['Direction'] = TThostFtdcDirectionType.THOST_FTDC_D_Buy
-                    if not dfCommandTemp.loc[dfCommandTemp['本地下单码'] == tmp["本地下单码"]].empty:
-                        index = dfCommandTemp.index[dfCommandTemp['本地下单码'] == tmp["本地下单码"]][-1]
-                        s = dfCommandTemp.loc[index]
-                        profitLine = s['空止盈线']
-                        orderEvent.dict_['CombOffsetFlag'] = chr(TThostFtdcOffsetFlagType.THOST_FTDC_OF_Close.value)
-                        orderEvent.dict_['OrderPriceType'] = TThostFtdcOrderPriceTypeType.THOST_FTDC_OPT_LimitPrice
-                        orderEvent.dict_['LimitPrice'] = profitLine
-                        orderEvent.dict_['orderref'] = orderRef
-                        orderEvent.dict_['VolumeTotalOriginal'] = int(var["Volume"])
-                        self.orderCommand(orderEvent)
-                        # region 写入 dfCommand 上
-                        if tmp["本地下单码"][:-1] + '0' not in dfCommand['本地下单码'].tolist():
-                            # 新写入止损单
-                            s["本地下单码"] = tmp["本地下单码"][:-1] + '0'
-                            s['应开多手数'] = 0
-                            s['应开空手数'] = 0
-                            s['合约号'] = s['合约号'].split('.')[0]
-                            s['持有空手数'] = int(var["Volume"])
-                            s['发单时间'] = pd.to_datetime(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-                            event = Event(type_=EVENT_SHOWCOMMAND)
-                            event.dict_ = s
-                            self.showCommand(event)
-                        else:  # 将止损指令写入到指令表格上
-                            index = dfCommand['本地下单码'].tolist().index(tmp["本地下单码"][:-1] + '0')
-                            with lockDfCommand:
-                                dfCommand.at[index, '持有空手数'] += int(var["Volume"])
-                                dfCommand.to_pickle('pickle\\dfCommand.pkl')
-                        # endregion
-            else:
-                index = dictFreqPosition[freq]['代码'].tolist().index(tmp["代码"])
-                event = Event(type_=EVENT_SHOWPOSITION)
-                event.dict_ = tmp.copy()
-                event.dict_['数量'] += dictFreqPosition[freq]['数量'][index]
-                event.dict_['append'] = True
-                self.showPositionEvent(event)
-                # 进行下止盈单操作
-                orderRef = tmp["本地下单码"][:-1] + '2'
-                orderEvent = Event(type_=EVENT_ORDERCOMMAND)
-                orderEvent.dict_['InstrumentID'] = var['InstrumentID']
-                if var["Direction"] == TThostFtdcDirectionType.THOST_FTDC_D_Buy:
-                    orderEvent.dict_['Direction'] = TThostFtdcDirectionType.THOST_FTDC_D_Sell
-                    if not dfCommandTemp.loc[dfCommandTemp['本地下单码'] == tmp["本地下单码"]].empty:
-                        index = dfCommandTemp.index[dfCommandTemp['本地下单码'] == tmp["本地下单码"]][-1]
-                        s = dfCommandTemp.loc[index]
-                        profitLine = s['多止盈线']
-                        orderEvent.dict_['CombOffsetFlag'] = chr(TThostFtdcOffsetFlagType.THOST_FTDC_OF_Close.value)
-                        orderEvent.dict_['OrderPriceType'] = TThostFtdcOrderPriceTypeType.THOST_FTDC_OPT_LimitPrice
-                        orderEvent.dict_['LimitPrice'] = profitLine
-                        orderEvent.dict_['orderref'] = orderRef
-                        orderEvent.dict_['VolumeTotalOriginal'] = int(var["Volume"])
-                        self.orderCommand(orderEvent)
-                        # region 写入 dfCommand 上
-                        if tmp["本地下单码"][:-1] + '0' not in dfCommand['本地下单码'].tolist():
-                            # 新写入止损单
-                            s["本地下单码"] = tmp["本地下单码"][:-1] + '0'
-                            s['应开多手数'] = 0
-                            s['应开空手数'] = 0
-                            s['合约号'] = s['合约号'].split('.')[0]
-                            s['持有多手数'] = int(var["Volume"])
-                            s['发单时间'] = pd.to_datetime(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-                            event = Event(type_=EVENT_SHOWCOMMAND)
-                            event.dict_ = s
-                            self.showCommand(event)
-                        else:
-                            # 能够直接执行是因为 dfCommand 是单线程操作，不会有两条线路操作
-                            index = dfCommand['本地下单码'].tolist().index(tmp["本地下单码"][:-1] + '0')
-                            with lockDfCommand:
-                                dfCommand.at[index, '持有多手数'] += int(var["Volume"])
-                                dfCommand.to_pickle('pickle\\dfCommand.pkl')
-                        # endregion
-                else:
-                    orderEvent.dict_['Direction'] = TThostFtdcDirectionType.THOST_FTDC_D_Buy
-                    if not dfCommandTemp.loc[dfCommandTemp['本地下单码'] == tmp["本地下单码"]].empty:
-                        index = dfCommandTemp.index[dfCommandTemp['本地下单码'] == tmp["本地下单码"]][-1]
-                        s = dfCommandTemp.loc[index]
-                        profitLine = s['空止盈线']
-                        orderEvent.dict_['CombOffsetFlag'] = chr(TThostFtdcOffsetFlagType.THOST_FTDC_OF_Close.value)
-                        orderEvent.dict_['OrderPriceType'] = TThostFtdcOrderPriceTypeType.THOST_FTDC_OPT_LimitPrice
-                        orderEvent.dict_['LimitPrice'] = profitLine
-                        orderEvent.dict_['orderref'] = orderRef
-                        orderEvent.dict_['VolumeTotalOriginal'] = int(var["Volume"])
-                        self.orderCommand(orderEvent)
-                        # region 写入 dfCommand上
-                        if tmp["本地下单码"][:-1] + '0' not in dfCommand['本地下单码'].tolist():
-                            # 新写入止损单
-                            s["本地下单码"] = tmp["本地下单码"][:-1] + '0'
-                            s['应开多手数'] = 0
-                            s['应开空手数'] = 0
-                            s['合约号'] = s['合约号'].split('.')[0]
-                            s['持有空手数'] = int(var["Volume"])
-                            s['发单时间'] = pd.to_datetime(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-                            event = Event(type_=EVENT_SHOWCOMMAND)
-                            event.dict_ = s
-                            self.showCommand(event)
-                        else:
-                            index = dfCommand['本地下单码'].tolist().index(tmp["本地下单码"][:-1] + '0')
-                            with lockDfCommand:
-                                dfCommand.at[index, '持有空手数'] += int(var["Volume"])
-                                dfCommand.to_pickle('pickle\\dfCommand.pkl')
-                        # endregion
+        with lockDfCommand:
+            dfCommandTemp = dfCommand.copy()
+        with lockDictFreqPosition:
+            dfFreqPosition = dictFreqPosition[freq].copy()
+        # 对频段持仓进行处理，并挂止盈单
+        if var["OffsetFlag"] == TThostFtdcOffsetFlagType.THOST_FTDC_OF_Open:  # 成交单为 开仓单
+            # 增加持仓量信息
+            eventPosition = Event(type_=EVENT_POSITION)  # 将 持仓信息 更新到 持仓量 上
+            eventPosition.dict_ = tmp.copy()
+            if tmp["代码"] in dfFreqPosition['代码'].values:  # 成交的品种不显示在持仓上
+                index = dfFreqPosition['代码'].tolist().index(tmp["代码"])
+                eventPosition.dict_['数量'] += dfFreqPosition['数量'][index]
+            eventPosition.dict_['append'] = True  # 覆盖持仓操作
+            self.chgPosition(eventPosition)  # 增加持仓信息
+            # 进行下止盈单操作
+            orderRef = tmp["本地下单码"][:-1] + '2'
+            orderEvent = Event(type_=EVENT_ORDERCOMMAND)
+            orderEvent.dict_['InstrumentID'] = tmp["代码"]
+            if var["Direction"] == TThostFtdcDirectionType.THOST_FTDC_D_Buy:  # 做多方向
+                orderEvent.dict_['Direction'] = TThostFtdcDirectionType.THOST_FTDC_D_Sell
+                if not dfCommandTemp.loc[dfCommandTemp['本地下单码'] == tmp["本地下单码"]].empty:  # 查找指令单，查看止盈价
+                    index = dfCommandTemp.index[dfCommandTemp['本地下单码'] == tmp["本地下单码"]][-1]
+                    s = dfCommandTemp.loc[index]
+                    profitLine = s['多止盈线']
+                    orderEvent.dict_['CombOffsetFlag'] = chr(TThostFtdcOffsetFlagType.THOST_FTDC_OF_Close.value)
+                    orderEvent.dict_['OrderPriceType'] = TThostFtdcOrderPriceTypeType.THOST_FTDC_OPT_LimitPrice
+                    orderEvent.dict_['LimitPrice'] = profitLine
+                    orderEvent.dict_['orderRef'] = orderRef
+                    orderEvent.dict_['VolumeTotalOriginal'] = int(var["Volume"])
+                    self.orderCommand(orderEvent)
+                    # region 将止损指令写入到 指令单上
+                    if tmp["本地下单码"][:-1] + '0' not in dfCommandTemp['本地下单码'].tolist():  # 将止损价写在 指令单上
+                        # 新写入止损单
+                        s["本地下单码"] = tmp["本地下单码"][:-1] + '0'
+                        s['应开多手数'] = 0
+                        s['应开空手数'] = 0
+                        s['合约号'] = s['合约号'].split('.')[0]
+                        s['持有多手数'] = int(var["Volume"])
+                        s['发单时间'] = pd.to_datetime(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+                        event = Event(type_=EVENT_SHOWCOMMAND)
+                        event.dict_ = s
+                        self.showCommand(event)
+                    else:
+                        index = dfCommandTemp['本地下单码'].tolist().index(tmp["本地下单码"][:-1] + '0')
+                        with lockDfCommand:
+                            dfCommand.at[index, '持有多手数'] += int(var["Volume"])  # 增加需要平仓的 头寸
+                            dfCommand.to_pickle('pickle\\dfCommand.pkl')
+                    # endregion
+            else:  # 做空方向
+                orderEvent.dict_['Direction'] = TThostFtdcDirectionType.THOST_FTDC_D_Buy
+                if not dfCommandTemp.loc[dfCommandTemp['本地下单码'] == tmp["本地下单码"]].empty:
+                    index = dfCommandTemp.index[dfCommandTemp['本地下单码'] == tmp["本地下单码"]][-1]
+                    s = dfCommandTemp.loc[index]
+                    profitLine = s['空止盈线']
+                    orderEvent.dict_['CombOffsetFlag'] = chr(TThostFtdcOffsetFlagType.THOST_FTDC_OF_Close.value)
+                    orderEvent.dict_['OrderPriceType'] = TThostFtdcOrderPriceTypeType.THOST_FTDC_OPT_LimitPrice
+                    orderEvent.dict_['LimitPrice'] = profitLine
+                    orderEvent.dict_['orderRef'] = orderRef
+                    orderEvent.dict_['VolumeTotalOriginal'] = int(var["Volume"])
+                    self.orderCommand(orderEvent)
+                    # region 写入 dfCommand 上
+                    if tmp["本地下单码"][:-1] + '0' not in dfCommandTemp['本地下单码'].tolist():
+                        # 新写入止损单
+                        s["本地下单码"] = tmp["本地下单码"][:-1] + '0'
+                        s['应开多手数'] = 0
+                        s['应开空手数'] = 0
+                        s['合约号'] = s['合约号'].split('.')[0]
+                        s['持有空手数'] = int(var["Volume"])
+                        s['发单时间'] = pd.to_datetime(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+                        event = Event(type_=EVENT_SHOWCOMMAND)
+                        event.dict_ = s
+                        self.showCommand(event)
+                    else:  # 将止损指令写入到指令表格上
+                        index = dfCommandTemp['本地下单码'].tolist().index(tmp["本地下单码"][:-1] + '0')  # 需要增加平仓的头寸
+                        with lockDfCommand:
+                            dfCommand.at[index, '持有空手数'] += int(var["Volume"])
+                            dfCommand.to_pickle('pickle\\dfCommand.pkl')
+                    # endregion
         else:  # 如果 成交单 为平仓，而且 代码 在 dfFreqPosition[freq] 上的话，进行删除持仓操作
-            if tmp["代码"] in dictFreqPosition[freq]['代码'].tolist():
-                index = dictFreqPosition[freq]['代码'].tolist().index(tmp["代码"])
-                if abs(tmp["数量"]) < abs(dictFreqPosition[freq]['数量'][index]):
-                    event = Event(type_=EVENT_SHOWPOSITION)
-                    event.dict_ = tmp.copy()
-                    event.dict_['时间'] = dictFreqPosition[freq]['时间'][index]
-                    event.dict_['数量'] += dictFreqPosition[freq]['数量'][index]
-                    event.dict_['append'] = True
-                    self.showPositionEvent(event)
+            if tmp["代码"] in dfFreqPosition['代码'].tolist():
+                index = dfFreqPosition['代码'].tolist().index(tmp["代码"])
+                if abs(tmp["数量"]) < abs(dfFreqPosition['数量'][index]):
+                    eventPosition = Event(type_=EVENT_POSITION)
+                    eventPosition.dict_ = tmp.copy()
+                    eventPosition.dict_['时间'] = dfFreqPosition['时间'][index]
+                    eventPosition.dict_['数量'] += dfFreqPosition['数量'][index]
+                    eventPosition.dict_['append'] = True
+                    self.chgPosition(eventPosition)
                 else:
-                    event = Event(type_=EVENT_SHOWPOSITION)
-                    event.dict_ = tmp.copy()
-                    self.showPositionEvent(event)
+                    eventPosition = Event(type_=EVENT_POSITION)
+                    eventPosition.dict_ = tmp.copy()
+                    self.chgPosition(eventPosition)
 
     def error(self, event):
         var = event.dict_
@@ -463,42 +374,33 @@ class RdMd():
             return
         else:
             dictTemp['本地下单码'] = dictOrderRef[var['OrderRef']]
+            if var['OrderRef'] in dictRefOrder[dictTemp['本地下单码']]:
+                dictRefOrder[dictTemp['本地下单码']].remove(var['OrderRef'])  # 需要在 dictRefOrder 上删除这个数据
+                pd.to_pickle(dictRefOrder, 'pickle\\dictRefOrder.pkl')
         dictTemp['代码'] = var['InstrumentID']
-        if dictTemp["代码"][-4:].isdigit():
-            if dictTemp["代码"][:-4] not in dictGoodsChg.keys():
-                return
-        else:
-            if dictTemp["代码"][:-3] not in dictGoodsChg.keys():
-                return
         freq = int(dictTemp["本地下单码"].split('.')[1])
         dictTemp['freq'] = freq
         goodsCode = getGoodsCode(var['InstrumentID'])
         dictTemp['名称'] = dictGoodsName[goodsCode]
         if var["Direction"] == TThostFtdcDirectionType.THOST_FTDC_D_Buy:
+            theDirection = TThostFtdcDirectionType.THOST_FTDC_D_Buy
+            dictTemp["价格"] = var["LimitPrice"]
+            dictTemp["数量"] = var["VolumeTotalOriginal"]
             if var["CombOffsetFlag"] == '0':
-                theDirection = TThostFtdcDirectionType.THOST_FTDC_D_Buy
                 dictTemp["方向"] = "买/开"
-                dictTemp["价格"] = var["LimitPrice"]
-                dictTemp["数量"] = var["VolumeTotalOriginal"]
             else:
-                theDirection = TThostFtdcDirectionType.THOST_FTDC_D_Buy
                 dictTemp["方向"] = "买/平"
-                dictTemp["价格"] = var["LimitPrice"]
-                dictTemp["数量"] = var["VolumeTotalOriginal"]
         else:
+            theDirection = TThostFtdcDirectionType.THOST_FTDC_D_Sell
+            dictTemp["价格"] = var["LimitPrice"]
+            dictTemp["数量"] = var["VolumeTotalOriginal"] * (-1)
             if var["CombOffsetFlag"] == '0':
-                theDirection = TThostFtdcDirectionType.THOST_FTDC_D_Sell
                 dictTemp["方向"] = "卖/开"
-                dictTemp["价格"] = var["LimitPrice"]
-                dictTemp["数量"] = var["VolumeTotalOriginal"] * (-1)
             else:
-                theDirection = TThostFtdcDirectionType.THOST_FTDC_D_Sell
                 dictTemp["方向"] = "卖/平"
-                dictTemp["价格"] = var["LimitPrice"]
-                dictTemp["数量"] = var["VolumeTotalOriginal"] * (-1)
         dictTemp['错误原因'] = var.get('ErrorMsg', "未知原因")
         dictTemp['时间'] = datetime.now()
-        downLogTradeRecord('error: ' + str(var))
+        downLogTradeRecord('error: ' + str(dictTemp), freq)
         table = dictFreqDb[freq]['错误委托单']
         newDict = dict([[x, dictTemp[x]] for x in listFreqError])
         newDict = insertDbChg(newDict)
@@ -507,9 +409,7 @@ class RdMd():
         if dictTemp['错误原因'] == 'CTP:报单错误：不允许重复报单':
             # 删除 dictOrderRef
             dictOrderRef.pop(var['OrderRef'])
-            dictRefOrder[dictTemp['本地下单码']].remove(var['OrderRef'])
             pd.to_pickle(dictOrderRef, 'pickle\\dictOrderRef.pkl')
-            pd.to_pickle(dictRefOrder, 'pickle\\dictRefOrder.pkl')
             # 进行下单操作
             orderEvent = Event(type_=EVENT_ORDERCOMMAND)
             orderEvent.dict_['InstrumentID'] = var['InstrumentID']
@@ -517,7 +417,7 @@ class RdMd():
             orderEvent.dict_['CombOffsetFlag'] = chr(TThostFtdcOffsetFlagType.THOST_FTDC_OF_Close.value)
             orderEvent.dict_['OrderPriceType'] = TThostFtdcOrderPriceTypeType.THOST_FTDC_OPT_LimitPrice
             orderEvent.dict_['LimitPrice'] = var["LimitPrice"]
-            orderEvent.dict_['orderref'] = dictTemp['本地下单码']
+            orderEvent.dict_['orderRef'] = dictTemp['本地下单码']
             orderEvent.dict_['VolumeTotalOriginal'] = var["VolumeTotalOriginal"]
             self.orderCommand(orderEvent)
         elif dictTemp['错误原因'] == 'CTP:资金不足':
@@ -526,31 +426,33 @@ class RdMd():
             downLogProgram('出现非预期错误，请查明原因。')
             assert False  # 如果错误不在预期之类，直接中断程序吧
 
-    def showPositionEvent(self, event):
+    def chgPosition(self, event):
         with lockDictFreqPosition:
-            if event.dict_.get('append', False):
-                freq = event.dict_['freq']
-                dictTemp = event.dict_.copy()
-                if dictTemp['代码'] in dictFreqPosition[freq]['代码'].tolist():  # 如果在 持仓信息上， 则进行成交量的相加
-                    index = dictFreqPosition[freq]['代码'].tolist().index(dictTemp['代码'])
-                    dictFreqPosition[freq].loc[index] = [dictTemp[x] for x in listFreqPosition]
+            dictTemp = event.dict_.copy()
+            freq = dictTemp['freq']
+            dictFreqPosition[freq] = dictFreqPosition[freq][listFreqPosition]
+            dfFreqPosition = dictFreqPosition[freq]
+            if dictTemp.get('append', False):
+                if dictTemp['代码'] in dfFreqPosition['代码'].tolist():  # 如果已经有持仓信息的话，直接 覆盖这条持仓信息
+                    index = dfFreqPosition['代码'].tolist().index(dictTemp['代码'])
+                    dfFreqPosition.loc[index] = [dictTemp[x] for x in listFreqPosition]
                     table = dictFreqDb[freq]['频段持仓']
                     mongoIndex = {'代码': dictTemp['代码']}
                     newDict = dict([[x, dictTemp[x]] for x in listFreqPosition])
                     newDict = insertDbChg(newDict)
                     table.update_one(mongoIndex, {"$set": newDict})
                 else:
-                    dictFreqPosition[freq].loc[dictFreqPosition[freq].shape[0]] = [dictTemp[x] for x in listFreqPosition]
+                    dfFreqPosition.loc[dfFreqPosition.shape[0]] = [dictTemp[x] for x in listFreqPosition]
                     table = dictFreqDb[freq]['频段持仓']
                     newDict = dict([[x, dictTemp[x]] for x in listFreqPosition])
                     newDict = insertDbChg(newDict)
                     table.insert_one(newDict)
-            else:
-                freq = event.dict_['freq']
-                instrument = event.dict_['代码']
-                if instrument in dictFreqPosition[freq]['代码'].tolist():
-                    index = dictFreqPosition[freq]['代码'].tolist().index(instrument)
-                    dictFreqPosition[freq] = dictFreqPosition[freq].drop([index]).reset_index(drop = True)
+            else:  # 删除这一个持仓记录
+                instrument = dictTemp['代码']
+                if instrument in dfFreqPosition['代码'].tolist():
+                    index = dfFreqPosition['代码'].tolist().index(instrument)
+                    dfFreqPosition.drop([index], inplace=True)
+                    dfFreqPosition.reset_index(drop = True, inplace=True)
                     table = dictFreqDb[freq]['频段持仓']
                     mongoIndex = {'代码': instrument}
                     table.delete_one(mongoIndex)
@@ -564,33 +466,33 @@ class RdMd():
         if upPrice != 0 and lowPrice != 0:
             if orderPrice != 0:
                 if orderPrice > upPrice:
-                    listStopProfit.append(event.dict_['orderref'])  # 因为价格超过止盈单，所以不需要挂单
+                    listStopProfit.append(event.dict_['orderRef'])  # 因为价格超过止盈单，所以不需要挂单
                     return
                 elif orderPrice < lowPrice:
-                    listStopProfit.append(event.dict_['orderref'])  # 因为价格低于止损单，所以不需要挂单
+                    listStopProfit.append(event.dict_['orderRef'])  # 因为价格低于止损单，所以不需要挂单
                     return
         # 开仓操作
         if event.dict_['CombOffsetFlag'] == chr(TThostFtdcOffsetFlagType.THOST_FTDC_OF_Open.value):
             now = datetime.now() + timedelta(hours=6)
-            mapOrderref = now.strftime('%H%M%S%f')[:9] + (uniformCode + event.dict_['orderref'].split('.')[1]).zfill(3)[-3:]  #
-            dictOrderRef[mapOrderref] = event.dict_['orderref']
-            if event.dict_['orderref'] in dictRefOrder.keys():
-                dictRefOrder[event.dict_['orderref']].append(mapOrderref)
+            uniOrderRef = now.strftime('%H%M%S%f')[:9] + (uniformCode + event.dict_['orderRef'].split('.')[1]).zfill(3)[-3:]  #
+            dictOrderRef[uniOrderRef] = event.dict_['orderRef']
+            if event.dict_['orderRef'] in dictRefOrder.keys():
+                dictRefOrder[event.dict_['orderRef']].append(uniOrderRef)
             else:
-                dictRefOrder[event.dict_['orderref']] = [mapOrderref]
+                dictRefOrder[event.dict_['orderRef']] = [uniOrderRef]
             if event.dict_['Direction'] == TThostFtdcDirectionType.THOST_FTDC_D_Buy:  # 做多
                 if event.dict_['OrderPriceType'] == TThostFtdcOrderPriceTypeType.THOST_FTDC_OPT_LimitPrice:
-                    self.td.buy(instrument, mapOrderref, orderPrice,
+                    self.td.buy(instrument, uniOrderRef, orderPrice,
                                 event.dict_['VolumeTotalOriginal'])
                 else:
-                    self.td.buy(instrument, mapOrderref, upPrice,
+                    self.td.buy(instrument, uniOrderRef, upPrice,
                                 event.dict_['VolumeTotalOriginal'])
             elif event.dict_['Direction'] == TThostFtdcDirectionType.THOST_FTDC_D_Sell: # 做空
                 if event.dict_['OrderPriceType'] == TThostFtdcOrderPriceTypeType.THOST_FTDC_OPT_LimitPrice:
-                    self.td.short(instrument, mapOrderref, orderPrice,
+                    self.td.short(instrument, uniOrderRef, orderPrice,
                                   event.dict_['VolumeTotalOriginal'])
                 else:
-                    self.td.short(instrument, mapOrderref, lowPrice,
+                    self.td.short(instrument, uniOrderRef, lowPrice,
                                   event.dict_['VolumeTotalOriginal'])
         elif event.dict_['CombOffsetFlag'] == chr(TThostFtdcOffsetFlagType.THOST_FTDC_OF_Close.value):  # 平仓操作
             # 判断是否有preOrderRef
@@ -602,7 +504,7 @@ class RdMd():
                         # 如果不等于已撤单的话，我需要等到撤单为止
                         dictPreOrderRefOrder[preOrderRef] = event
                         return
-            freq = int(event.dict_['orderref'].split('.')[1])
+            freq = int(event.dict_['orderRef'].split('.')[1])
             if (freq in listFreq) and (instrument in dictFreqPosition[freq]['代码'].tolist()):
                 index = dictFreqPosition[freq]['代码'].tolist().index(instrument)
                 timeTemp = dictFreqPosition[freq]['时间'].iat[index]
@@ -614,56 +516,55 @@ class RdMd():
             else:
                 return
             now = datetime.now() + timedelta(hours=6)
-            mapOrderref = now.strftime('%H%M%S%f')[:9] + (uniformCode + event.dict_['orderref'].split('.')[1]).zfill(3)[-3:]
-            dictOrderRef[mapOrderref] = event.dict_['orderref']
-            if event.dict_['orderref'] in dictRefOrder.keys():
-                dictRefOrder[event.dict_['orderref']].append(mapOrderref)
+            uniOrderRef = now.strftime('%H%M%S%f')[:9] + (uniformCode + event.dict_['orderRef'].split('.')[1]).zfill(3)[-3:]
+            dictOrderRef[uniOrderRef] = event.dict_['orderRef']
+            if event.dict_['orderRef'] in dictRefOrder.keys():
+                dictRefOrder[event.dict_['orderRef']].append(uniOrderRef)
             else:
-                dictRefOrder[event.dict_['orderref']] = [mapOrderref]
+                dictRefOrder[event.dict_['orderRef']] = [uniOrderRef]
             if event.dict_['Direction'] == TThostFtdcDirectionType.THOST_FTDC_D_Buy:  # 买
                 if event.dict_['OrderPriceType'] == TThostFtdcOrderPriceTypeType.THOST_FTDC_OPT_LimitPrice:
                     if isToday:
-                        self.td.coverToday(instrument, mapOrderref,
+                        self.td.coverToday(instrument, uniOrderRef,
                                            orderPrice,
                                            event.dict_['VolumeTotalOriginal'])
                     else:
-                        self.td.cover(instrument, mapOrderref,
+                        self.td.cover(instrument, uniOrderRef,
                                       orderPrice,
                                       event.dict_['VolumeTotalOriginal'])
                 elif event.dict_['OrderPriceType'] == TThostFtdcOrderPriceTypeType.THOST_FTDC_OPT_AnyPrice:
                     if isToday:
-                        self.td.coverToday(instrument, mapOrderref,
-                                           upPrice,
+                        self.td.coverToday(instrument, uniOrderRef,
+                                           dictInstrumentPrice[instrument] + 5 * dictGoodsUnit[goodsCode],
                                            event.dict_['VolumeTotalOriginal'])
                     else:
-                        self.td.cover(instrument, mapOrderref,
-                                      upPrice,
-                                      event.dict_['VolumeTotalOriginal'])
+                        self.td.cover(instrument, uniOrderRef,
+                                      dictInstrumentPrice[instrument] + 5 * dictGoodsUnit[goodsCode], event.dict_['VolumeTotalOriginal'])
             elif event.dict_['Direction'] == TThostFtdcDirectionType.THOST_FTDC_D_Sell:
                 if event.dict_['OrderPriceType'] == TThostFtdcOrderPriceTypeType.THOST_FTDC_OPT_LimitPrice:
                     if isToday:
-                        self.td.sellToday(instrument, mapOrderref,
+                        self.td.sellToday(instrument, uniOrderRef,
                                           orderPrice,
                                           event.dict_['VolumeTotalOriginal'])
                     else:
-                        self.td.sell(instrument, mapOrderref,
+                        self.td.sell(instrument, uniOrderRef,
                                      orderPrice,
                                      event.dict_['VolumeTotalOriginal'])
                 elif event.dict_['OrderPriceType'] == TThostFtdcOrderPriceTypeType.THOST_FTDC_OPT_AnyPrice:
                     if isToday:
-                        self.td.sellToday(instrument, mapOrderref,
-                                          lowPrice,
+                        self.td.sellToday(instrument, uniOrderRef,
+                                          dictInstrumentPrice[instrument] - 5 * dictGoodsUnit[goodsCode],
                                           event.dict_['VolumeTotalOriginal'])
                     else:
-                        self.td.sell(instrument, mapOrderref,
-                                     lowPrice,
+                        self.td.sell(instrument, uniOrderRef,
+                                     dictInstrumentPrice[instrument] - 5 * dictGoodsUnit[goodsCode],
                                      event.dict_['VolumeTotalOriginal'])
         pd.to_pickle(dictOrderRef, 'pickle\\dictOrderRef.pkl')
         pd.to_pickle(dictRefOrder, 'pickle\\dictRefOrder.pkl')
 
     def orderCancel(self, event):
-        orderref = event.dict_['orderref']
-        for eachRefOrder in dictRefOrder.get(orderref, [orderref]):
+        orderRef = event.dict_['orderRef']  # 找到平仓的本地下单码
+        for eachRefOrder in dictRefOrder.get(orderRef, [orderRef]):
             if eachRefOrder in dfOrderSource['OrderRef'].tolist():
                 index = dfOrderSource['OrderRef'].tolist().index(eachRefOrder)
                 if dfOrderSource['StatusMsg'][index] not in ["全部成交", "全部成交报单已提交"] and dfOrderSource['StatusMsg'][index][:3] != "已撤单":
@@ -671,8 +572,8 @@ class RdMd():
                     self.td.cancelOrder(dict)
 
     def orderCancelPark(self, event):
-        orderref = event.dict_['orderref']
-        for eachRefOrder in dictRefOrder.get(orderref, [orderref]):
+        orderRef = event.dict_['orderRef']
+        for eachRefOrder in dictRefOrder.get(orderRef, [orderRef]):
             if eachRefOrder in dfOrderSource['OrderRef'].tolist():
                 index = dfOrderSource['OrderRef'].tolist().index(eachRefOrder)
                 if dfOrderSource['StatusMsg'][index] not in ["全部成交", "全部成交报单已提交"] and dfOrderSource['StatusMsg'][index][:3] != "已撤单":
@@ -684,9 +585,8 @@ class RdMd():
         with lockDfCommand:
             if data.get('isChg', False):  # 更改本地下单码的命令，转为无效
                 dfCommand.at[data['index'], '合约号'] = data['goods_code']
-            else:
-                # 将之前相同本地下单码的指令单转成无效
-                dfCommandTemp = dfCommand[dfCommand['本地下单码'] == data['本地下单码']].copy()
+            else:  # 增加持仓操作
+                dfCommandTemp = dfCommand[dfCommand['本地下单码'] == data['本地下单码']].copy()  # 将之前相同本地下单码的指令单转成无效
                 for i in dfCommandTemp.index:
                     dfCommand.at[i, '合约号'] += '.'
                 dfCommand.loc[dfCommand.shape[0]] = [data[x] for x in listCommand]
@@ -735,7 +635,7 @@ class RdMd():
             freq = int(orderRef.split('.')[1])
             index = dfCommandTemp.index[i]
             if not judgeCodeValue(orderRef, theTradeTime):
-                downLogTradeRecord('tick数据时间{}已经超出代码{}的有效时间'.format(theTradeTime, orderRef))
+                downLogTradeRecord('tick数据时间{}已经超出代码 {} 的有效时间'.format(theTradeTime, orderRef), freq)
                 event = Event(type_=EVENT_SHOWCOMMAND)
                 s['isChg'] = True
                 s['index'] = index
@@ -747,9 +647,9 @@ class RdMd():
                 if close <= s['多开仓线'] <= dictInstrumentPrice[instrument] or close >= s['多开仓线'] >= dictInstrumentPrice[instrument]:
                     # 如果 dictFreqPosition[freq] 已经存在持仓的话，不进行开仓
                     if instrument in dictFreqPosition[freq]['代码'].tolist():  # 如果已经持仓的，那不需要再开了
-                        downLogTradeRecord("满足品种 {} 策略 {} 的多开仓线，进行下多仓单操作，但是该频段却持有仓位，则不进行开仓操作".format(instrument, orderRef))
+                        downLogTradeRecord("满足品种 {} 策略 {} 的多开仓线，进行下多仓单操作，但是该频段却持有仓位，则不进行开仓操作".format(instrument, orderRef), freq)
                         continue
-                    downLogTradeRecord("满足品种 {} 策略 {} 的多开仓线，进行下多仓单操作".format(instrument, orderRef))
+                    downLogTradeRecord("满足品种 {} 策略 {} 的多开仓线，进行下多仓单操作".format(instrument, orderRef), freq)
                     # 修改 dfCommand 操作
                     event = Event(type_=EVENT_SHOWCOMMAND)
                     s['isChg'] = True
@@ -764,14 +664,14 @@ class RdMd():
                     orderEvent.dict_['CombOffsetFlag'] = chr(TThostFtdcOffsetFlagType.THOST_FTDC_OF_Open.value)
                     orderEvent.dict_['OrderPriceType'] = TThostFtdcOrderPriceTypeType.THOST_FTDC_OPT_LimitPrice
                     orderEvent.dict_['LimitPrice'] = s['多开仓线'] + 2 * goodsUnit
-                    orderEvent.dict_['orderref'] = orderRef
+                    orderEvent.dict_['orderRef'] = orderRef
                     orderEvent.dict_['VolumeTotalOriginal'] = int(s['应开多手数'])
                     self.orderCommand(orderEvent)
                 elif close <= s['空开仓线'] <= dictInstrumentPrice[instrument] or close >= s['空开仓线'] >= dictInstrumentPrice[instrument]:
                     if instrument in dictFreqPosition[freq]['代码'].tolist():
-                        downLogTradeRecord("满足品种 {} 策略 {} 的多开仓线，进行下多仓单操作，但是该频段却持有仓位，则不进行开仓操作".format(instrument, orderRef))
+                        downLogTradeRecord("满足品种 {} 策略 {} 的多开仓线，进行下多仓单操作，但是该频段却持有仓位，则不进行开仓操作".format(instrument, orderRef), freq)
                         continue
-                    downLogTradeRecord("满足品种 {} 策略 {} 的空开仓线，进行下多仓单操作".format(instrument, orderRef))
+                    downLogTradeRecord("满足品种 {} 策略 {} 的空开仓线，进行下多仓单操作".format(instrument, orderRef), freq)
                     # 修改 dfCommand 操作
                     event = Event(type_=EVENT_SHOWCOMMAND)
                     s['isChg'] = True
@@ -786,7 +686,7 @@ class RdMd():
                     orderEvent.dict_['CombOffsetFlag'] = chr(TThostFtdcOffsetFlagType.THOST_FTDC_OF_Open.value)
                     orderEvent.dict_['OrderPriceType'] = TThostFtdcOrderPriceTypeType.THOST_FTDC_OPT_LimitPrice
                     orderEvent.dict_['LimitPrice'] = s['空开仓线'] - 2 * goodsUnit
-                    orderEvent.dict_['orderref'] = orderRef
+                    orderEvent.dict_['orderRef'] = orderRef
                     orderEvent.dict_['VolumeTotalOriginal'] = int(s['应开空手数'])
                     self.orderCommand(orderEvent)
             elif orderRef[-1] == '0':
@@ -798,11 +698,11 @@ class RdMd():
                         # 没有挂止盈单，且止盈单又不是涨停的话，暂时不需要挂止损单
                         if (orderRef[:-1] + "2" not in dfFreqOrderTemp['本地下单码'].tolist()) and (orderRef[:-1] + "2" not in listStopProfit):
                             continue
-                        downLogTradeRecord("满足品种 {} 策略 {} 的多止损线，进行多止损操作".format(instrument, orderRef))
+                        downLogTradeRecord("满足品种 {} 策略 {} 的多止损线，进行多止损操作".format(instrument, orderRef), freq)
                         cancelOrderRef = orderRef[:-1] + '2'
-                        downLogTradeRecord("品种：{} 之前的编号 {} 进行撤单操作".format(instrument, cancelOrderRef))
+                        downLogTradeRecord("品种：{} 之前的编号 {} 进行撤单操作".format(instrument, cancelOrderRef), freq)
                         cancelEvent = Event(type_=EVENT_ORDERCANCEL)
-                        cancelEvent.dict_['orderref'] = cancelOrderRef
+                        cancelEvent.dict_['orderRef'] = cancelOrderRef
                         self.orderCancel(cancelEvent)
                         # 修改 dfCommand 操作
                         event = Event(type_=EVENT_SHOWCOMMAND)
@@ -816,9 +716,9 @@ class RdMd():
                         orderEvent.dict_['InstrumentID'] = instrument
                         orderEvent.dict_['Direction'] = TThostFtdcDirectionType.THOST_FTDC_D_Sell
                         orderEvent.dict_['CombOffsetFlag'] = chr(TThostFtdcOffsetFlagType.THOST_FTDC_OF_Close.value)
-                        orderEvent.dict_['OrderPriceType'] = TThostFtdcOrderPriceTypeType.THOST_FTDC_OPT_AnyPrice
-                        orderEvent.dict_['LimitPrice'] = 0
-                        orderEvent.dict_['orderref'] = orderRef
+                        orderEvent.dict_['OrderPriceType'] = TThostFtdcOrderPriceTypeType.THOST_FTDC_OPT_LimitPrice
+                        orderEvent.dict_['LimitPrice'] = s['多止损线'] - 5 * goodsUnit
+                        orderEvent.dict_['orderRef'] = orderRef
                         orderEvent.dict_['VolumeTotalOriginal'] = int(s['持有多手数'])
                         orderEvent.dict_['preOrderRef'] = cancelOrderRef
                         self.orderCommand(orderEvent)
@@ -830,11 +730,11 @@ class RdMd():
                         # 没有挂止盈单，且止盈单又不是涨停的话，暂时不需要挂止损单
                         if (orderRef[:-1] + "2" not in dfFreqOrderTemp['本地下单码'].tolist()) and (orderRef[:-1] + "2" not in listStopProfit):
                             continue
-                        downLogTradeRecord("满足品种 {} 策略 {} 的空止损线，进行空止损操作".format(instrument, orderRef))
+                        downLogTradeRecord("满足品种 {} 策略 {} 的空止损线，进行空止损操作".format(instrument, orderRef), freq)
                         cancelOrderRef = orderRef[:-1] + '2'
-                        downLogTradeRecord("品种：{} 之前的编号 {} 进行撤单操作".format(instrument, cancelOrderRef))
+                        downLogTradeRecord("品种：{} 之前的编号 {} 进行撤单操作".format(instrument, cancelOrderRef), freq)
                         cancelEvent = Event(type_=EVENT_ORDERCANCEL)
-                        cancelEvent.dict_['orderref'] = cancelOrderRef
+                        cancelEvent.dict_['orderRef'] = cancelOrderRef
                         self.orderCancel(cancelEvent)
                         # 修改 dfCommand 操作
                         event = Event(type_=EVENT_SHOWCOMMAND)
@@ -848,9 +748,9 @@ class RdMd():
                         orderEvent.dict_['InstrumentID'] = instrument
                         orderEvent.dict_['Direction'] = TThostFtdcDirectionType.THOST_FTDC_D_Buy
                         orderEvent.dict_['CombOffsetFlag'] = chr(TThostFtdcOffsetFlagType.THOST_FTDC_OF_Close.value)
-                        orderEvent.dict_['OrderPriceType'] = TThostFtdcOrderPriceTypeType.THOST_FTDC_OPT_AnyPrice
-                        orderEvent.dict_['LimitPrice'] = 0
-                        orderEvent.dict_['orderref'] = orderRef
+                        orderEvent.dict_['OrderPriceType'] = TThostFtdcOrderPriceTypeType.THOST_FTDC_OPT_LimitPrice
+                        orderEvent.dict_['LimitPrice'] = s['空止损线'] + 5 * goodsUnit
+                        orderEvent.dict_['orderRef'] = orderRef
                         orderEvent.dict_['VolumeTotalOriginal'] = int(s['持有空手数'])
                         orderEvent.dict_['preOrderRef'] = cancelOrderRef
                         self.orderCommand(orderEvent)
@@ -881,7 +781,7 @@ class RdMd():
             thdExec.start()
             self.loginTime = datetime.now()
             
-    def insertMarketData(self, event):
+    def checkChgInstrument(self, event):
         var = event.dict_
         self.listInstrumentInformation.append(var)
         if var['last']:
@@ -898,6 +798,17 @@ class RdMd():
                     nowTime = datetime.now().time()
                     instrument = dictGoodsInstrument[goodsIcon + '.' + dictGoodsChg[goodsIcon]]
                     if nowTime > time(14, 59) and nowTime < time(15):  # 只需要日盘临近收盘时切换即可。
+                        downLogProgram("因为切换了主力合约，关闭该合约的指令")
+                        with lockDfCommand:
+                            dfCommandTemp = dfCommand.copy()
+                        dfCommandTemp = dfCommandTemp[dfCommandTemp['合约号'] == instrument].copy()  # 这个tick数据处理，是完全的错误的吧：是的：
+                        for i in range(dfCommandTemp.shape[0]):
+                            index = dfCommandTemp.index[i]
+                            showCommandEvent = Event(type_=EVENT_SHOWCOMMAND)
+                            showCommandEvent.dict_['isChg'] = True
+                            showCommandEvent.dict_['index'] = index
+                            showCommandEvent.dict_['goods_code'] = instrument + '.'
+                            self.showCommand(showCommandEvent)
                         downLogProgram("因为切换了主力合约，进行平仓操作")
                         # 查看是否有该品种的持仓
                         with lockDictFreqPosition:
@@ -905,14 +816,14 @@ class RdMd():
                         for freq in listFreq:
                             dfFreqPosition = dictFreqPositionTemp[freq].copy()
                             if instrument in dfFreqPosition['代码'].tolist():
-                                orderEvent = Event(type_=EVENT_MARKETORDER)
+                                orderEvent = Event(type_=EVENT_ORDERMARKET)
                                 orderEvent.dict_['instrument'] = instrument
                                 orderEvent.dict_['freq'] = freq
                                 orderEvent.dict_['num'] = dfFreqPosition['数量'][dfFreqPosition['代码'] == instrument].iat[0]
-                                self.marketOrder(orderEvent)
+                                self.orderMarket(orderEvent)
             self.listInstrumentInformation = []
             
-    def marketOrder(self, event):  # 调用这个方法能够进行市价平仓操作，通过 频段 与 合约名 进行筛选判断。
+    def orderMarket(self, event):  # 调用这个方法能够进行市价平仓操作，通过 频段 与 合约名 进行筛选判断。
         freq = event.dict_['freq']
         instrument = event.dict_['instrument']
         goodsCode = getGoodsCode(instrument)
@@ -952,10 +863,10 @@ class RdMd():
                 if dfFreqOrderTemp['状态'][index] not in ["全部成交", "全部成交报单已提交"] and dfFreqOrderTemp['状态'][index][
                                                                                  :3] != "已撤单":  # 撤单。
                     cancelEvent = Event(type_=EVENT_ORDERCANCEL)
-                    cancelEvent.dict_['orderref'] = dfFreqOrderTemp['本地下单码'][index]
-                    preOrderRef = cancelEvent.dict_['orderref']
+                    cancelEvent.dict_['orderRef'] = dfFreqOrderTemp['本地下单码'][index]
+                    preOrderRef = cancelEvent.dict_['orderRef']
                     self.orderCancel(cancelEvent)
-                    if preOrderRef[:-1] + '0' in dfCommandTemp['本地下单码'].tolist():  # 清除指令操作
+                    if preOrderRef[:-1] + '0' in dfCommandTemp['本地下单码'].tolist():  # 清除止损单的指令
                         index = dfCommandTemp[dfCommandTemp['本地下单码'] == (preOrderRef[:-1] + '0')].index[0]
                         orderDBEvent = Event(type_=EVENT_SHOWCOMMAND)
                         orderDBEvent.dict_['isChg'] = True
@@ -969,7 +880,7 @@ class RdMd():
             orderEvent.dict_['Direction'] = TThostFtdcDirectionType.THOST_FTDC_D_Buy
         else:
             orderEvent.dict_['Direction'] = TThostFtdcDirectionType.THOST_FTDC_D_Sell
-        orderEvent.dict_['orderref'] = orderRef
+        orderEvent.dict_['orderRef'] = orderRef
         orderEvent.dict_['CombOffsetFlag'] = chr(TThostFtdcOffsetFlagType.THOST_FTDC_OF_Close.value)
         orderEvent.dict_['OrderPriceType'] = TThostFtdcOrderPriceTypeType.THOST_FTDC_OPT_AnyPrice
         orderEvent.dict_['LimitPrice'] = 0
@@ -1038,7 +949,7 @@ class RdMd():
             try:
                 strReplyTemp = self.queueRecv.get(timeout=2)
                 strReplyTemp = strReplyTemp[1]
-                downLogTradeRecord(strReplyTemp)
+                downLogTradeRecord(strReplyTemp, 1)
                 onBar(strReplyTemp)
                 self.queueRecv.task_done()
             except Empty:
@@ -1046,15 +957,19 @@ class RdMd():
     # endregion
 
     # region qtimer 的事件处理
-    def flushPosition(self):  # 确认所有的持仓单都会挂止盈单
+    def flushStopProfit(self):  # 确认所有的持仓单都会挂止盈单
         now = datetime.now()
-        if self.loginTime != None and (now - self.loginTime) > timedelta(minutes=1):
-            if not judgeExecTimer():
+        if self.loginTime != None and (now - self.loginTime) > timedelta(minutes=1):  # 登陆后，过 1 分钟才进行对应的操作
+            if self.isExecRefresh:  # 刷新周交易明细表，登陆后过一分钟后再进行执行
+                if (time(2, 30) < now.time() < time(8, 55)) or (time(11, 30) < now.time() < time(13, 25)) or (time(10, 15) < now.time() < time(10, 25)) or (time(15, 15) < now.time() < time(20, 55)) or now.date() not in tradeDate.tolist():
+                    self.execWeekTradeTab()
+                self.isExecRefresh = False
+            if not judgeExecTimer():  # 在指定的时刻执行
                 return
             with lockDictFreqOrder:
-                dictFreqOrderTemp = dictFreqOrder.copy()
+                dictFreqOrderTemp = dictFreqOrder.copy()  # 读取委托单信息
             with lockDictFreqPosition:
-                dictFreqPositionTemp = dictFreqPosition.copy()
+                dictFreqPositionTemp = dictFreqPosition.copy()  # 读取持仓单信息
             nowTime = now.time()
             for freq in listFreq:
                 for instrument in dictFreqPositionTemp[freq]['代码'].tolist():
@@ -1062,7 +977,7 @@ class RdMd():
                     if goodsCode in dictFreqUnGoodsCode[freq]:
                         downLogProgram("在CTA{} 中的 {} 不进行频段品种交易，需要手动平仓".format(freq, instrument))
                         continue
-                    if judgeInTradeTime(goodsCode):  # 确认在 goodsCode 的交易时间内
+                    if judgeInTradeTime(goodsCode):  # 确认现在在 goodsCode 的交易时间内
                         indexGoods = listGoods.index(goodsCode)
                         for i in range(len(dictFreqGoodsClose[freq][goodsCode])):
                             if i == len(dictFreqGoodsClose[freq][goodsCode]) - 1:
@@ -1079,30 +994,27 @@ class RdMd():
                                     break
                         else:
                             return
-                        orderRef = theTradeDay.strftime('%Y%m%d') + '.' + str(freq) + '.' + str(indexGoods) + '.' + str(indexBar) + '.'
+                        orderRef = theTradeDay.strftime('%Y%m%d') + '.' + str(freq) + '.' + str(indexGoods) + '.' + str(indexBar) + '.'  # 求出当前交易的本地下单码
                         dfFreqOrder = dictFreqOrderTemp[freq].copy()
-                        if (orderRef not in dfFreqOrder['本地下单码'].str[:-1].tolist()) and (orderRef + '2' not in listStopProfit):
-                            listTemp = []  # 主要避免相同本地下单码重复下单
-                            # 主要对之前编号进行撤单操作
-                            preOrderRef = ''
+                        if (orderRef not in dfFreqOrder['本地下单码'].str[:-1].tolist()) and (orderRef + '2' not in listStopProfit):  # 如果当前委托单中没有 这个本地下单码 的信息，判断为出错
+                            preOrderRef = ''  # 先进行撤单操作
+                            dfFreqOrder = dfFreqOrder[~dfFreqOrder['本地下单码'].duplicated(keep='last')].reset_index(drop=True)  # 去重操作
                             if dfFreqOrder.shape[0] > 0:
                                 for i in dfFreqOrder['本地下单码'][pd.DataFrame(dfFreqOrder['本地下单码'].str.split('.').tolist())[2] == str(indexGoods)].index:
                                     if dfFreqOrder['状态'][i] not in ["全部成交", "全部成交报单已提交"] and dfFreqOrder['状态'][i][:3] != "已撤单":
-                                        if dfFreqOrder['本地下单码'][i] not in listTemp:
-                                            listTemp.append(dfFreqOrder['本地下单码'][i])
-                                            downLogBarDeal("品种：{} 之前的编号 {} 进行撤单操作".format(instrument, dfFreqOrder['本地下单码'][i]), freq)
-                                            cancelEvent = Event(type_=EVENT_ORDERCANCEL)
-                                            cancelEvent.dict_['orderref'] = dfFreqOrder['本地下单码'][i]
-                                            preOrderRef = dfFreqOrder['本地下单码'][i]
-                                            ee.put(cancelEvent)
-                            getOrder(freq, goodsCode, orderRef, preOrderRef, True)
-
+                                        downLogBarDeal("品种：{} 之前的编号 {} 进行撤单操作".format(instrument, dfFreqOrder['本地下单码'][i]), freq)
+                                        cancelEvent = Event(type_=EVENT_ORDERCANCEL)
+                                        cancelEvent.dict_['orderRef'] = dfFreqOrder['本地下单码'][i]
+                                        preOrderRef = dfFreqOrder['本地下单码'][i]
+                                        ee.put(cancelEvent)
+                            if preOrderRef not in dictPreOrderRefOrder.keys():  # 因为有一些委托单只是卡在撤单那边吧
+                                getCommand(freq, goodsCode, orderRef, preOrderRef, True)
             # 到点需要测试周交易明细表
             if self.checkInstrumentChg and time(14, 59) <= now.time() <= time(15):
                 self.checkInstrumentChg = False
                 self.td.t.ReqQryDepthMarketData()
 
-    def showPosition(self):  # 查看持仓记录
+    def flushShowPostion(self):  # 查看持仓记录
         if self.loginTime != None:
             if not judgeExecTimer():  # 执行的时间
                 return
@@ -1171,6 +1083,9 @@ class RdMd():
             dfCommandTemp = dfCommandTemp[~dfCommandTemp['合约号'].str.endswith('.')]  # 我需要获取有效的指令
             dfCommandTemp = dfCommandTemp[['发单时间', '本地下单码', '合约号', '应开多手数', '应开空手数']]
             print(dfCommandTemp)
+            if dfInstrumentNextOrder.shape[0] > 0:
+                print('预下单指令')
+                print(dfInstrumentNextOrder)
     # endregion
 
 if __name__ == '__main__':

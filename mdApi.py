@@ -71,7 +71,7 @@ class MdApi:
 
     def onRtnDepthMarketData(self, data):
         """行情推送"""
-        event = Event(type_=EVENT_MARKETDATA_CONTRACT)
+        event = Event(type_=EVENT_TICK)
         event.dict_['InstrumentID'] = data.getInstrumentID()
         event.dict_['LastPrice'] = data.getLastPrice()
         event.dict_['TradingDay'] = data.getTradingDay()
